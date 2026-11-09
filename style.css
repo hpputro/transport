@@ -143,7 +143,12 @@ button.small { padding: 6px 12px; font-size: 13px; }
   background: #f3f5f9;
   font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
   color: var(--muted); text-align: left; padding: 5px 6px;
+  cursor: pointer;
+  user-select: none;
 }
+#city-panel thead th:hover { color: var(--ink); background: #e8ecf3; }
+#city-panel thead th.sorted { color: var(--ink); }
+#city-panel thead th .arrow { font-size: 9px; margin-left: 2px; }
 #city-panel tbody { font-variant-numeric: tabular-nums; }
 #city-panel td { padding: 4px 6px; border-bottom: 1px solid #edf0f5; white-space: nowrap; }
 #city-panel td:nth-child(1), #city-panel td:nth-child(2) { color: var(--muted); width: 1%; }

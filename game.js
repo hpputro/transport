@@ -1085,10 +1085,50 @@
   $('b-cities').addEventListener('click', () => setCityPanel(!cityPanel.open));
   $('cp-close').addEventListener('click', () => setCityPanel(false));
 
-  /** Isi tabel: urut persentase tunggu/kapasitas, lalu level, lalu populasi (semua dari terbesar). */
+  // Urutan tabel: klik judul kolom untuk mengurutkan, klik lagi untuk membalik arah.
+  // dir: 1 = naik ▲ (kecil → besar, A → Z), -1 = turun ▼. "No" = urutan bawaan.
+  const SORT_FIRST_DIR = { default: -1, ratio: -1, level: -1, pop: -1, name: 1 };
+  const citySort = { key: 'default', dir: -1 };
+  /** Urutan bawaan: tunggu/kapasitas, lalu level, lalu populasi (semua dari terbesar). */
+  const defaultCmp = (a, b) => b.ratio - a.ratio || b.c.size - a.c.size || b.c.pop - a.c.pop;
+  // pembanding naik (kecil → besar / A → Z)
+  const SORT_CMP = {
+    default: () => 0,
+    ratio: (a, b) => a.ratio - b.ratio,
+    level: (a, b) => a.c.size - b.c.size,
+    pop: (a, b) => a.c.pop - b.c.pop,
+    name: (a, b) => a.c.name.localeCompare(b.c.name, 'id'),
+  };
+
+  function updateSortHeaders() {
+    document.querySelectorAll('#city-panel thead th').forEach((th) => {
+      const on = th.dataset.sort === citySort.key;
+      th.classList.toggle('sorted', on);
+      const label = th.dataset.label || (th.dataset.label = th.textContent);
+      th.innerHTML = '';
+      th.append(label);
+      if (on && citySort.key !== 'default') {
+        const arrow = document.createElement('span');
+        arrow.className = 'arrow';
+        arrow.textContent = citySort.dir > 0 ? '▲' : '▼'; // ▲ naik, ▼ turun
+        th.append(arrow);
+      }
+    });
+  }
+
+  document.querySelectorAll('#city-panel thead th').forEach((th) => th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    if (citySort.key === key && key !== 'default') citySort.dir = -citySort.dir;
+    else { citySort.key = key; citySort.dir = SORT_FIRST_DIR[key]; }
+    updateSortHeaders();
+    cityPanel.last = 0; // perbarui tabel segera
+  }));
+
+  /** Isi tabel sesuai urutan yang dipilih; nilai yang sama diurutkan dengan urutan bawaan. */
   function renderCityPanel() {
+    const cmp = SORT_CMP[citySort.key];
     const rows = S.cities.map((c) => ({ c, ratio: c.wait.length / SIZE_CAP[c.size] }))
-      .sort((a, b) => b.ratio - a.ratio || b.c.size - a.c.size || b.c.pop - a.c.pop);
+      .sort((a, b) => citySort.dir * cmp(a, b) || defaultCmp(a, b));
     $('cp-count').textContent = `${S.cities.length}/${S.target} kota`;
     const body = $('cp-body');
     // isi ulang hanya kalau jumlah baris berubah; selebihnya perbarui teksnya saja
