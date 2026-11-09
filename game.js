@@ -246,8 +246,15 @@
     const pick = (arr) => arr[Math.floor(S.rng() * arr.length)];
     const has = (name) => S.cities.some((c) => c.name === name);
     const started = new Set(S.cities.map((c) => c.region));
+    // Aturan dengan pengecualian (ifPresent) diundi 50-50 di awal permainan (S.spreadPlan):
+    //  'before' → kota pengecualian harus muncul dulu sebelum menyeberang (kota pertama = alt)
+    //  'after'  → kota pengecualian ditahan sampai pulau tujuan sudah punya kota (kota pertama = cities)
+    const blocked = new Set();
+    GEO.SPREAD.forEach((rule, i) => {
+      if (S.spreadPlan[i] === 'after' && !started.has(rule.to)) blocked.add(rule.ifPresent);
+    });
     const growIn = (region) => {
-      const cand = left.filter((d) => d.region === region);
+      const cand = left.filter((d) => d.region === region && !blocked.has(d.name));
       const mine = S.cities.filter((c) => c.region === region);
       if (!cand.length) return null;
       if (!mine.length) return pick(cand);
@@ -259,13 +266,14 @@
     const options = [];
     for (const region of started) { const d = growIn(region); if (d) options.push(d); }
     const regions = levelRegions(S.level);
-    for (const rule of GEO.SPREAD) {
-      if (!started.has(rule.from) || started.has(rule.to) || !regions.includes(rule.to)) continue;
-      if (rule.requires && !rule.requires.some(has)) continue; // kota syarat di pulau asal belum muncul
+    GEO.SPREAD.forEach((rule, i) => {
+      if (!started.has(rule.from) || started.has(rule.to) || !regions.includes(rule.to)) return;
+      if (rule.requires && !rule.requires.some(has)) return; // kota syarat di pulau asal belum muncul
+      if (S.spreadPlan[i] === 'before' && !has(rule.ifPresent)) return; // tunggu kota pengecualian muncul dulu
       const names = rule.ifPresent && has(rule.ifPresent) ? rule.alt : rule.cities;
       const cand = left.filter((d) => names.includes(d.name));
       if (cand.length) options.push(pick(cand));
-    }
+    });
     // cadangan: kalau tidak ada calon (seharusnya tidak terjadi), ambil kota tersisa yang terdekat
     if (!options.length) return left.reduce((a, b) => (Math.min(...S.cities.map((c) => dist(c, b))) < Math.min(...S.cities.map((c) => dist(c, a))) ? b : a));
     return pick(options);
@@ -537,6 +545,8 @@
       particles: [],
     };
     S.remaining = levelCities(level).slice(); // kota peta ini yang belum muncul
+    // undian 50-50 untuk aturan menyeberang yang punya pengecualian (lihat nextCityDef)
+    S.spreadPlan = GEO.SPREAD.map((rule) => (rule.ifPresent ? (S.rng() < 0.5 ? 'before' : 'after') : null));
     view.bounds = levelBounds(level);
     // kota awal: maks. 3, semuanya di pulau baru (Peta 7 / Maluku hanya punya 2)
     const startCount = Math.min(3, S.remaining.filter((d) => d.region === GEO.LEVEL_REGIONS[level - 1]).length);

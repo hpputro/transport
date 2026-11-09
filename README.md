@@ -41,6 +41,8 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
 | Maluku → Papua | Sorong / Manokwari | |
 | Sulawesi → Nusa Tenggara | Mataram (Lombok) / Kupang | harus sudah ada Makassar atau Kendari |
 
+Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di awal setiap permainan: Serang muncul sebelum Sumatra dimasuki (pintu masuk Palembang), atau Serang ditahan sampai Sumatra dimasuki (pintu masuk Bandar Lampung).
+
 - **Skor** tiap peta adalah **populasi negara**, yaitu jumlah populasi semua kota (lihat "Status kota" di bawah). Rekornya disimpan per peta.
 - **Setelah menang** kamu bisa memilih:
   - lanjut ke peta berikutnya, atau
