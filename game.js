@@ -1066,7 +1066,7 @@
   }
 
   // ---- panel daftar kota ----
-  const LEVEL_LETTER = ' ABCDEFGH'; // A = Kampung … H = Kapital
+  const LEVEL_CODE = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // I = Kampung … VIII = Kapital
   const PANEL_W = 330;  // sama dengan lebar #city-panel di style.css
   const wideScreen = () => window.innerWidth >= 900; // di layar lebar panel berdampingan dengan peta
   const cityPanel = {
@@ -1148,7 +1148,7 @@
       tr.title = `${c.name} · ${SIZE_NAME[c.size]} · ${Math.round(ratio * 100)}% kapasitas`;
       const cells = tr.children;
       cells[0].textContent = k + 1;
-      cells[1].textContent = LEVEL_LETTER[c.size];
+      cells[1].textContent = LEVEL_CODE[c.size];
       cells[2].textContent = c.name;
       cells[3].textContent = `${c.wait.length}/${SIZE_CAP[c.size]}`;
       cells[4].textContent = c.pop;
