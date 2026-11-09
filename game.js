@@ -330,8 +330,12 @@
       S.money -= TRAIN_COST;
     }
     const n = L.stations.length;
-    const atEnd = L.trains.length % 2 === 1;
-    const tr = { line: L, i: atEnd ? n - 1 : 0, dir: atEnd ? -1 : 1, prog: 0, state: 'dwell', dwellT: 0.6, pax: [] };
+    // kereta muncul di depo: stasiun tempat jalur ini pertama kali ditarik
+    if (L.origin == null || !L.stations.includes(L.origin)) L.origin = L.stations[0];
+    const i = L.stations.indexOf(L.origin);
+    // depo di ujung → berangkat ke arah satu-satunya; depo di tengah (jalur diperpanjang dari awal) → arah bergantian
+    const dir = i === 0 ? 1 : i === n - 1 ? -1 : (L.trains.length % 2 ? -1 : 1);
+    const tr = { line: L, i, dir, prog: 0, state: 'dwell', dwellT: 0.6, pax: [] };
     L.trains.push(tr);
     S.trains.push(tr);
     serve(tr, L.stations[tr.i]);
@@ -364,7 +368,8 @@
   function trimLine(L, fromHead) {
     const st = L.stations, n = st.length;
     if (n <= 2) return; // jalur 2 stasiun dihapus lewat tombol "Hapus jalur"
-    const removed = S.cities[fromHead ? st[0] : st[n - 1]].name;
+    const removedId = fromHead ? st[0] : st[n - 1];
+    const removed = S.cities[removedId].name;
     const refund = Math.round((fromHead ? L.segCosts[0] : L.segCosts[n - 2]) * 0.5);
     S.money += refund;
     if (fromHead) {
@@ -373,6 +378,8 @@
     } else {
       st.pop(); L.segCosts.pop();
     }
+    // depo ikut pindah ke ujung baru kalau stasiun depo yang dilepas
+    if (L.origin === removedId) L.origin = fromHead ? st[0] : st[st.length - 1];
     recomputeNetwork();
     fixTrains(L);
     toast(`Stasiun ${removed} dilepas dari jalur ${L.name}, kembali $${refund}`);
@@ -902,7 +909,9 @@
     if (panel.hidden) return;
     $('lp-name').textContent = `Jalur ${L.name}`;
     $('lp-name').style.color = L.color;
-    $('lp-info').textContent = `${L.stations.length} stasiun · ${L.trains.length} kereta · muat ${L.cap}`;
+    $('lp-info').textContent = `${L.stations.length} stasiun · ${L.trains.length} kereta · muat ${L.cap}` +
+      (L.origin != null ? ` · depo ${S.cities[L.origin].name}` : '');
+    $('b-train').title = L.origin != null ? `Kereta baru muncul di depo: ${S.cities[L.origin].name}` : '';
     $('b-extend').classList.toggle('active', S.building);
     $('b-train').textContent = `+ Kereta ($${TRAIN_COST})`;
     $('b-train').disabled = L.trains.length >= MAX_TRAINS || S.money < TRAIN_COST;
