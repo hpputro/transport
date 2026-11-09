@@ -1237,16 +1237,21 @@
     const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3)
       .map(([id, n]) => `${S.cities[id].name} (${n})`).join(', ');
     const lines = S.lines.filter((l) => l.stations.includes(c.id)).map((l) => l.name).join(', ');
-    const visits = c.size === 0
-      ? `\nBelum terhubung jalur: sambungkan supaya menjadi ${SIZE_NAME[1].toLowerCase()}`
-      : c.size < MAX_LEVEL
-        ? `\nDikunjungi: ${c.visits}/${GROW_AT[c.size]} menuju ${SIZE_NAME[c.size + 1].toLowerCase()}`
-        : `\nDikunjungi: ${c.visits} (level tertinggi)`;
+    // (kunjungan/syarat level berikutnya); Kampung belum bisa naik lewat kunjungan, Kapital sudah tertinggi
+    const visits = c.size === 0 ? 'belum terhubung' : c.size < MAX_LEVEL ? `${c.visits}/${GROW_AT[c.size]}` : `${c.visits}`;
     const appeal = crowdFactor(c);
-    tip.textContent = `${c.name} · ${SIZE_NAME[c.size]}\nPopulasi: ${c.pop}${visits}\nMenunggu: ${c.wait.length}/${cap}` +
-      (appeal < 1 ? `\nTerlalu padat: minat dikunjungi ${Math.round(appeal * 100)}%` : '') +
+    // Contoh:
+    //   Padang: II Desa (63/120)
+    //   Populasi: 9/16 (14)          ← menunggu/kapasitas (populasi)
+    //   Medan (4), Jambi (3), Bengkulu (2)
+    //   Belum ada rute: 2
+    //   Terlalu padat: minat dikunjungi 79%
+    //   Jalur: Merah, Kuning
+    tip.textContent = `${c.name}: ${LEVEL_CODE[c.size]} ${SIZE_NAME[c.size]} (${visits})` +
+      `\nPopulasi: ${c.wait.length}/${cap} (${c.pop})` +
+      (top ? `\n${top}` : '') +
       (noRoute ? `\nBelum ada rute: ${noRoute}` : '') +
-      (top ? `\nTujuan: ${top}` : '') +
+      (appeal < 1 ? `\nTerlalu padat: minat dikunjungi ${Math.round(appeal * 100)}%` : '') +
       `\nJalur: ${lines || 'belum terhubung'}`;
     tip.hidden = false;
     const tx = Math.min(mouse.cx + 14, window.innerWidth - tip.offsetWidth - 8);
