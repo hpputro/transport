@@ -33,12 +33,15 @@
   const MAX_ZOOM = 6;        // zoom maksimal relatif terhadap tampilan seluruh wilayah
   const MIN_ZOOM = 0.75;     // sedikit di bawah 1 supaya skala bisa dipertahankan saat panel bawah membesar/mengecil
   const LAST_MAP = GEO.LEVEL_REGIONS.length; // peta 1 = Sumatra, tiap peta menambah satu wilayah
-  // Level kota 1..8: kapasitas berlipat dua tiap level; hanya ukuran lingkaran yang membedakan di peta
-  const SIZE_NAME = ['', 'Kampung', 'Desa', 'Distrik', 'Kota Kecil', 'Kota Besar', 'Metropolitan', 'Megapolitan', 'Kapital'];
+  // Level kota 0..8. Level 0 (Kampung) = belum terhubung jalur, kapasitas 0: penumpang pertama saja sudah membuatnya penuh.
+  // Begitu tersambung, kota langsung menjadi Dusun (1); setelah itu kapasitas berlipat dua tiap level.
+  // Hanya ukuran lingkaran yang membedakan level di peta.
+  const SIZE_NAME = ['Kampung', 'Dusun', 'Desa', 'Distrik', 'Kota Kecil', 'Kota Besar', 'Metropolitan', 'Megapolitan', 'Kapital'];
   const SIZE_CAP = [0, 8, 16, 32, 64, 128, 256, 512, 1024];
-  const SIZE_R = [0, 10, 12.5, 15, 17.5, 20, 22.5, 25, 27.5];
+  const SIZE_R = [8, 10, 12.5, 15, 17.5, 20, 22.5, 25, 27.5];
   const MAX_LEVEL = SIZE_NAME.length - 1;
-  // total kunjungan untuk naik dari level i ke i+1 (selisih antarlevel = 5 × kapasitas level itu)
+  // total kunjungan untuk naik dari level i ke i+1 (selisih antarlevel = 5 × kapasitas level itu);
+  // Kampung → Dusun bukan lewat kunjungan, tapi saat kota tersambung jalur
   const GROW_AT = [0, 40, 120, 280, 600, 1240, 2520, 5080];
   const NUMBER_FROM = 3;     // mulai Distrik, penumpang menunggu ditampilkan sebagai angka di dalam lingkaran
   const SAME_LINE_BONUS = 2; // kota tujuan yang satu jalur dengan kota asal 2× lebih sering dipilih
@@ -291,7 +294,8 @@
     S.remaining = S.remaining.filter((d) => d !== def);
     const city = {
       id: S.cities.length, name: def.name, region: def.region, label: def.label, x: def.x, y: def.y,
-      size: 1, visits: 0, pop: 0, wait: [], acc: S.rng() * 0.6, born: S.t, overT: 0,
+      // kota baru = Kampung (level 0) sampai tersambung jalur
+      size: 0, visits: 0, pop: 0, wait: [], acc: S.rng() * 0.6, born: S.t, overT: 0,
     };
     S.cities.push(city);
     recomputeNetwork();
@@ -304,7 +308,13 @@
    */
   function crowdFactor(c) {
     const cap = SIZE_CAP[c.size], n = c.wait.length;
-    return n <= cap ? 1 : (cap / n) ** 2;
+    return n <= cap ? 1 : (cap / n) ** 2; // Kampung (kapasitas 0) yang sudah ada penumpangnya: 0
+  }
+
+  /** Persentase penumpang menunggu terhadap kapasitas; Kampung (kapasitas 0) dengan penumpang dianggap paling penuh. */
+  function fillRatio(c) {
+    const cap = SIZE_CAP[c.size], n = c.wait.length;
+    return cap ? n / cap : n ? 1000 + n : 0;
   }
 
   function spawnPassenger(city) {
@@ -317,7 +327,7 @@
     // bobot tujuan = ukuran kota × faktor kepadatan × bonus satu jalur ÷ (1 + jarak/500)
     const w = others.map((c) => {
       const bonus = sameLine.has(c.id) ? SAME_LINE_BONUS : 1;
-      const v = (c.size * crowdFactor(c) * bonus) / (1 + dist(c, city) / 500);
+      const v = (Math.max(1, c.size) * crowdFactor(c) * bonus) / (1 + dist(c, city) / 500);
       tot += v;
       return v;
     });
@@ -354,6 +364,13 @@
       S.dist.push(d);
     }
     S.connected = adj.map((s) => s.size > 0);
+    // Kampung yang baru tersambung langsung menjadi Dusun (level tidak turun lagi kalau jalurnya dibongkar)
+    for (const c of S.cities) {
+      if (c.size === 0 && S.connected[c.id]) {
+        c.size = 1;
+        toast(`${c.name} tersambung dan menjadi ${SIZE_NAME[1].toLowerCase()}!`, 'good');
+      }
+    }
     // ukuran jaringan terbesar (jumlah kota yang saling terhubung)
     S.largest = 0;
     for (let s = 0; s < n; s++) {
@@ -486,7 +503,7 @@
   /** Kunjungan = penumpang yang turun di kota ini (sampai tujuan atau transit). Jadi syarat naik level. */
   function addVisit(city) {
     city.visits++;
-    if (city.size < MAX_LEVEL && city.visits >= GROW_AT[city.size]) {
+    if (city.size >= 1 && city.size < MAX_LEVEL && city.visits >= GROW_AT[city.size]) {
       city.size++;
       toast(`${city.name} berkembang menjadi ${SIZE_NAME[city.size].toLowerCase()}!`, 'good');
     }
@@ -1066,7 +1083,7 @@
   }
 
   // ---- panel daftar kota ----
-  const LEVEL_CODE = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // I = Kampung … VIII = Kapital
+  const LEVEL_CODE = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // 0 = Kampung, I = Dusun … VIII = Kapital
   const PANEL_W = 330;  // sama dengan lebar #city-panel di style.css
   const wideScreen = () => window.innerWidth >= 900; // di layar lebar panel berdampingan dengan peta
   const cityPanel = {
@@ -1127,7 +1144,7 @@
   /** Isi tabel sesuai urutan yang dipilih; nilai yang sama diurutkan dengan urutan bawaan. */
   function renderCityPanel() {
     const cmp = SORT_CMP[citySort.key];
-    const rows = S.cities.map((c) => ({ c, ratio: c.wait.length / SIZE_CAP[c.size] }))
+    const rows = S.cities.map((c) => ({ c, ratio: fillRatio(c) }))
       .sort((a, b) => citySort.dir * cmp(a, b) || defaultCmp(a, b));
     $('cp-count').textContent = `${S.cities.length}/${S.target} kota`;
     const body = $('cp-body');
@@ -1205,9 +1222,11 @@
     const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3)
       .map(([id, n]) => `${S.cities[id].name} (${n})`).join(', ');
     const lines = S.lines.filter((l) => l.stations.includes(c.id)).map((l) => l.name).join(', ');
-    const visits = c.size < MAX_LEVEL
-      ? `\nDikunjungi: ${c.visits}/${GROW_AT[c.size]} menuju ${SIZE_NAME[c.size + 1].toLowerCase()}`
-      : `\nDikunjungi: ${c.visits} (level tertinggi)`;
+    const visits = c.size === 0
+      ? `\nBelum terhubung jalur: sambungkan supaya menjadi ${SIZE_NAME[1].toLowerCase()}`
+      : c.size < MAX_LEVEL
+        ? `\nDikunjungi: ${c.visits}/${GROW_AT[c.size]} menuju ${SIZE_NAME[c.size + 1].toLowerCase()}`
+        : `\nDikunjungi: ${c.visits} (level tertinggi)`;
     const appeal = crowdFactor(c);
     tip.textContent = `${c.name} · ${SIZE_NAME[c.size]}\nPopulasi: ${c.pop}${visits}\nMenunggu: ${c.wait.length}/${cap}` +
       (appeal < 1 ? `\nTerlalu padat: minat dikunjungi ${Math.round(appeal * 100)}%` : '') +
@@ -1399,7 +1418,7 @@
       ctx.beginPath(); ctx.arc(X, Y, r + age * 22, 0, Math.PI * 2); ctx.stroke();
     }
     // indikator kepadatan
-    const fill = c.wait.length / cap;
+    const fill = fillRatio(c);
     if (fill > 0.5) {
       const over = c.wait.length > cap;
       const pulse = over ? 0.6 + 0.4 * Math.sin(now * 8) : 1;

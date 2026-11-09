@@ -75,22 +75,24 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   - **Populasi**: jumlah penumpang yang diantar ke kota itu sebagai tujuan akhir. Populasi semua kota dijumlahkan menjadi **populasi negara** (HUD atas), yang jadi skor permainan.
 - **Level kota**: makin tinggi level, makin besar kapasitas, tetapi kota juga menghasilkan lebih banyak penumpang. Di peta, level hanya dibedakan dari ukuran lingkaran.
 
-  | Level | Kapasitas | Total kunjungan untuk mencapainya |
-  |---|---|---|
-  | Kampung | 8 | (awal) |
-  | Desa | 16 | 40 |
-  | Distrik | 32 | 120 |
-  | Kota Kecil | 64 | 280 |
-  | Kota Besar | 128 | 600 |
-  | Metropolitan | 256 | 1.240 |
-  | Megapolitan | 512 | 2.520 |
-  | Kapital | 1024 | 5.080 |
+  | Kode | Level | Kapasitas | Cara mencapainya |
+  |---|---|---|---|
+  | 0 | Kampung | 0 | kota baru yang belum terhubung jalur |
+  | I | Dusun | 8 | langsung, begitu kota tersambung jalur |
+  | II | Desa | 16 | total 40 kunjungan |
+  | III | Distrik | 32 | 120 kunjungan |
+  | IV | Kota Kecil | 64 | 280 kunjungan |
+  | V | Kota Besar | 128 | 600 kunjungan |
+  | VI | Metropolitan | 256 | 1.240 kunjungan |
+  | VII | Megapolitan | 512 | 2.520 kunjungan |
+  | VIII | Kapital | 1024 | 5.080 kunjungan |
 
-  - Kampung dan Desa: penumpang menunggu ditampilkan sebagai titik di samping kota.
+  - Kampung tetap menghasilkan penumpang (60% dari laju normal). Karena kapasitasnya 0, penumpang pertama saja sudah membuatnya penuh dan kepuasan mulai turun, jadi kota baru perlu segera disambungkan. Level tidak turun lagi kalau jalurnya kemudian dibongkar.
+  - Kampung, Dusun, dan Desa: penumpang menunggu ditampilkan sebagai titik di samping kota.
   - Mulai Distrik: ditampilkan sebagai angka di dalam lingkaran (merah kalau melebihi kapasitas). Titik merah kecil di tepi lingkaran berarti ada penumpang yang tujuannya belum terjangkau.
 - **Jalur baru** terbuka setelah populasi negara mencapai 40, 120, dan 250.
 - **Kalah**: kota yang terlalu penuh (lingkaran merah berkedip) menurunkan kepuasan. Kalau kepuasan habis, permainan selesai.
-- **Daftar kota** (tombol "☰ Kota" di kanan atas): tabel `No | Lv | Kota | Tunggu/Kap | Pop.`, diurutkan dari persentase tunggu/kapasitas terbesar, lalu level tertinggi, lalu populasi terbesar. Level ditulis dengan angka Romawi: I Kampung, II Desa, III Distrik, IV Kota Kecil, V Kota Besar, VI Metropolitan, VII Megapolitan, VIII Kapital. Klik judul kolom untuk mengurutkan berdasarkan kolom itu (klik lagi untuk membalik arah, ▲ naik / ▼ turun); klik "No" untuk kembali ke urutan bawaan. Baris kuning = lebih dari 50% kapasitas, merah = melebihi kapasitas. Klik baris untuk menggeser peta ke kota itu. Di layar lebar panel ini terbuka di samping peta; di HP panel tertutup sampai tombolnya diketuk.
+- **Daftar kota** (tombol "☰ Kota" di kanan atas): tabel `No | Lv | Kota | Tunggu/Kap | Pop.`, diurutkan dari persentase tunggu/kapasitas terbesar, lalu level tertinggi, lalu populasi terbesar. Level ditulis dengan kode pada tabel di atas (0 Kampung, I Dusun … VIII Kapital). Klik judul kolom untuk mengurutkan berdasarkan kolom itu (klik lagi untuk membalik arah, ▲ naik / ▼ turun); klik "No" untuk kembali ke urutan bawaan. Baris kuning = lebih dari 50% kapasitas, merah = melebihi kapasitas. Klik baris untuk menggeser peta ke kota itu. Di layar lebar panel ini terbuka di samping peta; di HP panel tertutup sampai tombolnya diketuk.
 
 ## Kontrol
 
