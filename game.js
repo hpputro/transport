@@ -19,7 +19,9 @@
   const TRAIN_SPEED = 110;   // px per detik (±1,2° per detik)
   const DWELL = 0.5;         // lama berhenti di stasiun (tetap, tidak tergantung jumlah penumpang)
   const HOLD_RATIO = 0.9;    // kereta menahan diri kalau jarak ke kereta depan < 90% jarak ideal
-  const MAX_HOLD = 2;        // lama menahan diri maksimal per pemberhentian (detik)
+  const DAY_GROWTH = 0.03;   // laju penumpang naik 3% (dari laju dasar) per hari
+  const DAY_MULT_MAX = 2;    // ...tapi paling tinggi 2× laju dasar
+  const MAX_HOLD = 2;       // lama menahan diri maksimal per pemberhentian (detik)
   const TRAIN_COST = 400;
   const CAP_COST = 250;
   const CAP_STEP = 4;
@@ -609,7 +611,8 @@
         else S.target = S.cities.length; // peta sudah terlalu padat; target disesuaikan
       }
     }
-    const mult = 1 + 0.06 * (S.day - 1);
+    // laju penumpang naik 3% per hari, maksimal ×2 (tercapai di hari ke-34)
+    const mult = Math.min(DAY_MULT_MAX, 1 + DAY_GROWTH * (S.day - 1));
     for (const c of S.cities) {
       if (S.t - c.born > 6) {
         const rate = (0.06 + 0.045 * c.size) * mult * (S.connected[c.id] ? 1 : 0.6);
