@@ -20,6 +20,7 @@
       <div class="stat"><span class="lbl" id="s-sat-lbl">Kepuasan</span><div class="bar"><div id="s-sat"></div></div></div>
     </div>
     <button id="b-next" class="primary small" hidden>Peta berikutnya →</button>
+    <button id="b-cities" class="small" title="Tampilkan/sembunyikan daftar kota">☰ Kota</button>
     <div class="speed" role="group" aria-label="Kecepatan">
       <button data-speed="0" title="Jeda (Spasi)">❚❚</button>
       <button data-speed="0.25" title="Kecepatan 1: sangat lambat (¼×)">1</button>
@@ -55,6 +56,24 @@
       <div class="res-actions" id="res-actions"></div>
     </div>
   </footer>
+
+  <!-- daftar kota: urut persentase tunggu/kapasitas, lalu level, lalu populasi -->
+  <aside id="city-panel" hidden>
+    <div class="cp-head">
+      <b>Daftar kota</b>
+      <span id="cp-count"></span>
+      <button id="cp-close" class="small" title="Tutup">✕</button>
+    </div>
+    <div class="cp-scroll">
+    <table>
+      <thead>
+        <tr><th>No</th><th title="A = Kampung … H = Kapital">Lv</th><th>Kota</th><th title="Penumpang menunggu / kapasitas">Tunggu/Kap</th><th title="Populasi kota">Pop.</th></tr>
+      </thead>
+      <tbody id="cp-body"></tbody>
+    </table>
+    </div>
+    <p class="cp-note">Level: A Kampung · B Desa · C Distrik · D Kota Kecil · E Kota Besar · F Metropolitan · G Megapolitan · H Kapital. Klik baris untuk menuju kota.</p>
+  </aside>
 
   <div id="toasts"></div>
   <div id="tooltip" hidden></div>

@@ -119,6 +119,47 @@ button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
 .res-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 button.small { padding: 6px 12px; font-size: 13px; }
 
+/* ---------- panel daftar kota ---------- */
+#city-panel {
+  position: fixed;
+  right: 0;
+  top: 60px;      /* disesuaikan dengan tinggi HUD di game.js */
+  bottom: 80px;
+  width: 330px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  box-shadow: -1px 0 8px rgba(0, 0, 0, 0.12);
+  font-size: 12.5px;
+}
+.cp-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px 6px; border-bottom: 1px solid var(--line); }
+.cp-head b { font-size: 14px; }
+#cp-count { color: var(--muted); flex: 1; }
+#cp-close { min-height: 26px; padding: 2px 8px; }
+#city-panel table { width: 100%; border-collapse: collapse; }
+#city-panel thead th {
+  position: sticky; top: 0;
+  background: #f3f5f9;
+  font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--muted); text-align: left; padding: 5px 6px;
+}
+#city-panel tbody { font-variant-numeric: tabular-nums; }
+#city-panel td { padding: 4px 6px; border-bottom: 1px solid #edf0f5; white-space: nowrap; }
+#city-panel td:nth-child(1), #city-panel td:nth-child(2) { color: var(--muted); width: 1%; }
+#city-panel td:nth-child(2) { font-weight: 700; color: var(--ink); text-align: center; }
+#city-panel td:nth-child(3) { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+#city-panel td:nth-child(4), #city-panel td:nth-child(5),
+#city-panel th:nth-child(4), #city-panel th:nth-child(5) { text-align: right; }
+#city-panel tbody tr { cursor: pointer; }
+#city-panel tbody tr:hover { background: #eef3fb; }
+#city-panel tr.warn td:nth-child(4) { color: #b77900; font-weight: 700; }
+#city-panel tr.over td:nth-child(4) { color: var(--bad); font-weight: 700; }
+#city-panel tr.over { background: #fdf0f0; }
+.cp-scroll { overflow-y: auto; flex: 1; }
+.cp-note { margin: 0; padding: 6px 10px 8px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--line); }
+#b-cities.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
 /* ---------- toast & tooltip ---------- */
 #toasts {
   position: fixed;
@@ -198,6 +239,7 @@ button.small { padding: 6px 12px; font-size: 13px; }
   .bar { width: 70px; }
   .speed button { min-width: 32px; padding: 5px 6px; }
   #hud-bottom { padding-left: 12px; padding-right: 12px; gap: 4px; }
+  #city-panel { width: 86vw; max-width: 340px; }
   .chip { width: 34px; height: 34px; }
   button { font-size: 12px; padding: 6px 9px; min-height: 32px; }
   /* panel jalur: satu baris yang bisa digeser ke samping, supaya peta tidak tertutup */

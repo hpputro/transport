@@ -1065,8 +1065,72 @@
     resize();
   }
 
+  // ---- panel daftar kota ----
+  const LEVEL_LETTER = ' ABCDEFGH'; // A = Kampung … H = Kapital
+  const PANEL_W = 330;  // sama dengan lebar #city-panel di style.css
+  const wideScreen = () => window.innerWidth >= 900; // di layar lebar panel berdampingan dengan peta
+  const cityPanel = {
+    open: (() => { try { const v = localStorage.getItem('lintasKota.cityPanel'); return v == null ? wideScreen() : v === '1'; } catch (e) { return wideScreen(); } })(),
+    last: 0,
+  };
+
+  function setCityPanel(open) {
+    cityPanel.open = open;
+    try { localStorage.setItem('lintasKota.cityPanel', open ? '1' : '0'); } catch (e) { /* abaikan */ }
+    $('city-panel').hidden = !open;
+    $('b-cities').classList.toggle('active', open);
+    cityPanel.last = 0;
+    resize();
+  }
+  $('b-cities').addEventListener('click', () => setCityPanel(!cityPanel.open));
+  $('cp-close').addEventListener('click', () => setCityPanel(false));
+
+  /** Isi tabel: urut persentase tunggu/kapasitas, lalu level, lalu populasi (semua dari terbesar). */
+  function renderCityPanel() {
+    const rows = S.cities.map((c) => ({ c, ratio: c.wait.length / SIZE_CAP[c.size] }))
+      .sort((a, b) => b.ratio - a.ratio || b.c.size - a.c.size || b.c.pop - a.c.pop);
+    $('cp-count').textContent = `${S.cities.length}/${S.target} kota`;
+    const body = $('cp-body');
+    // isi ulang hanya kalau jumlah baris berubah; selebihnya perbarui teksnya saja
+    if (body.children.length !== rows.length) {
+      body.innerHTML = '';
+      for (let k = 0; k < rows.length; k++) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td></td><td></td><td></td><td></td><td></td>';
+        tr.addEventListener('click', () => focusCity(+tr.dataset.id));
+        body.appendChild(tr);
+      }
+    }
+    rows.forEach(({ c, ratio }, k) => {
+      const tr = body.children[k];
+      tr.dataset.id = c.id;
+      tr.className = ratio > 1 ? 'over' : ratio > 0.5 ? 'warn' : '';
+      tr.title = `${c.name} · ${SIZE_NAME[c.size]} · ${Math.round(ratio * 100)}% kapasitas`;
+      const cells = tr.children;
+      cells[0].textContent = k + 1;
+      cells[1].textContent = LEVEL_LETTER[c.size];
+      cells[2].textContent = c.name;
+      cells[3].textContent = `${c.wait.length}/${SIZE_CAP[c.size]}`;
+      cells[4].textContent = c.pop;
+    });
+  }
+
+  /** Geser peta ke kota yang dipilih dari daftar dan tandai sebentar. */
+  function focusCity(id) {
+    const c = S.cities[id];
+    if (!c) return;
+    view.cx = c.x; view.cy = c.y;
+    applyView();
+    S.focus = { id, until: performance.now() + 1800 };
+    if (!wideScreen()) setCityPanel(false); // di HP tutup panel supaya peta terlihat
+  }
+
   let lastHud = '';
   function updateHud() {
+    if (cityPanel.open && performance.now() - cityPanel.last > 400) {
+      cityPanel.last = performance.now();
+      renderCityPanel();
+    }
     const key = [S.level, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.population, Math.round(S.satisfaction)].join('|');
     if (key !== lastHud) {
       lastHud = key;
@@ -1143,7 +1207,12 @@
     const keep = !view.needsInit && view.winW === window.innerWidth && view.winH === window.innerHeight;
     const old = { scale: view.scale, ox: view.ox, oy: view.oy };
     view.winW = window.innerWidth; view.winH = window.innerHeight;
-    view.area = { x: 0, y: top, w: window.innerWidth, h: Math.max(50, window.innerHeight - top - bottom) };
+    // panel daftar kota mengisi ruang di antara HUD atas dan bawah; di layar lebar peta bergeser memberi tempat
+    const panel = $('city-panel');
+    panel.style.top = top + 'px';
+    panel.style.bottom = bottom + 'px';
+    const side = cityPanel.open && wideScreen() ? PANEL_W : 0;
+    view.area = { x: 0, y: top, w: window.innerWidth - side, h: Math.max(50, window.innerHeight - top - bottom) };
     const B = view.bounds, bw = B.x1 - B.x0, bh = B.y1 - B.y0;
     view.fit = Math.max(0.02, Math.min((view.area.w - 16) / bw, (view.area.h - 16) / bh));
     if (view.needsInit) {
@@ -1363,6 +1432,13 @@
     ctx.fillStyle = '#1f2433';
     ctx.fillText(c.name, lx, ly);
     ctx.textAlign = 'center';
+    // kota yang dipilih dari daftar kota: cincin biru berdenyut sebentar
+    if (S.focus && S.focus.id === c.id && performance.now() < S.focus.until) {
+      const k = (S.focus.until - performance.now()) / 1800;
+      ctx.strokeStyle = `rgba(31,120,209,${0.4 + 0.6 * k})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(X, Y, r + 12 + 10 * (1 - k), 0, Math.PI * 2); ctx.stroke();
+    }
     // setelah kalah: tandai kota yang penuh supaya mudah ditemukan
     if (S.over && c.wait.length > cap) {
       const pulse = Math.sin(now * 5);
@@ -1400,6 +1476,8 @@
 
   TERRAIN = buildTerrain();
   renderTerrain();
+  $('city-panel').hidden = !cityPanel.open;
+  $('b-cities').classList.toggle('active', cityPanel.open);
   newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, 1);
   const reached = Math.min(LAST_MAP, loadNum('map'));
   if (reached > 1) {
