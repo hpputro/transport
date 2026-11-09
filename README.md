@@ -36,4 +36,4 @@ Buka `index.html` di browser. Tidak perlu instalasi atau server.
 - `style.css`: tampilan HUD
 - `game.js`: seluruh logika permainan (pembuatan peta prosedural, rute penumpang dengan BFS, simulasi kereta, dan rendering canvas)
 
-Peta dan nama kota dibuat acak setiap permainan.
+Peta dibuat acak setiap permainan. Nama kota diambil acak dari ibu kota 38 provinsi di Indonesia (letaknya di peta tidak mengikuti geografi asli).

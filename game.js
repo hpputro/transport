@@ -149,21 +149,20 @@
   }
 
   // ================= Kota =================
-  const SYL_A = ['Su', 'Ma', 'Ka', 'Ba', 'Pa', 'Ta', 'Se', 'Ja', 'Lo', 'Bo', 'Wa', 'Ra', 'Pe', 'Ci', 'Ke', 'Ga', 'Tu', 'Bi', 'Sa', 'Me', 'Ri', 'Da', 'Lem', 'Pan', 'Sin', 'Ban', 'Kur'];
-  const SYL_B = ['ra', 'ma', 'nga', 'ka', 'lu', 'ri', 'wa', 'ndo', 'jo', 'pa', 'ta', 'di', 'dung', 'lang', 'tong', 'san', 'gi', 'ne', 'ru', 'bu'];
-  const SYL_C = ['ng', 'n', 'r', 'k', '', '', '', '', 'ja', 'ri', 'sa'];
-  const PREFIX = ['Tanjung ', 'Teluk ', 'Bukit ', 'Muara '];
+  // Ibu kota 38 provinsi di Indonesia. Nama dipakai acak; letaknya di peta tidak mengikuti geografi asli.
+  const CAPITALS = [
+    'Banda Aceh', 'Medan', 'Padang', 'Pekanbaru', 'Tanjungpinang', 'Jambi', 'Palembang', 'Pangkalpinang',
+    'Bengkulu', 'Bandar Lampung', 'Jakarta', 'Bandung', 'Serang', 'Semarang', 'Yogyakarta', 'Surabaya',
+    'Denpasar', 'Mataram', 'Kupang', 'Pontianak', 'Palangka Raya', 'Banjarbaru', 'Samarinda', 'Tanjung Selor',
+    'Manado', 'Gorontalo', 'Palu', 'Mamuju', 'Makassar', 'Kendari', 'Ambon', 'Sofifi',
+    'Jayapura', 'Manokwari', 'Merauke', 'Nabire', 'Wamena', 'Sorong',
+  ];
 
   function genName(rng) {
     const used = new Set(S.cities.map((c) => c.name));
-    const pick = (arr) => arr[Math.floor(rng() * arr.length)];
-    for (let k = 0; k < 60; k++) {
-      let n = pick(SYL_A) + pick(SYL_B) + pick(SYL_C);
-      if (n.length > 9) continue;
-      if (rng() < 0.15) n = pick(PREFIX) + n;
-      if (!used.has(n)) return n;
-    }
-    return 'Kota ' + (S.cities.length + 1);
+    const free = CAPITALS.filter((n) => !used.has(n));
+    if (!free.length) return 'Kota ' + (S.cities.length + 1);
+    return free[Math.floor(rng() * free.length)];
   }
 
   function landAround(x, y, r) {
