@@ -13,11 +13,13 @@
   <header id="hud-top">
     <div class="brand">Lintas Kota</div>
     <div class="stats">
+      <div class="stat"><span class="lbl" id="s-map">Peta 1</span><span id="s-conn">0/15 kota</span></div>
       <div class="stat"><span class="lbl">Hari</span><span id="s-day">1</span></div>
       <div class="stat"><span class="lbl">Kas</span><span id="s-money">$0</span></div>
       <div class="stat"><span class="lbl">Terantar</span><span id="s-deliv">0</span></div>
-      <div class="stat"><span class="lbl">Kepuasan</span><div class="bar"><div id="s-sat"></div></div></div>
+      <div class="stat"><span class="lbl" id="s-sat-lbl">Kepuasan</span><div class="bar"><div id="s-sat"></div></div></div>
     </div>
+    <button id="b-next" class="primary small" hidden>Peta berikutnya →</button>
     <div class="speed" role="group" aria-label="Kecepatan">
       <button data-speed="0" title="Jeda (Spasi)">❚❚</button>
       <button data-speed="1" title="Normal (1)">1×</button>
@@ -41,18 +43,14 @@
       </div>
     </div>
     <div id="hint"></div>
-    <!-- hasil akhir: ditampilkan di panel bawah supaya peta tetap terlihat -->
-    <div id="over-panel" hidden>
-      <div class="over-text">
-        <b class="over-title">Jaringan kewalahan!</b>
-        <span id="over-reason"></span>
+    <!-- hasil (menang/kalah): ditampilkan di panel bawah supaya peta tetap terlihat -->
+    <div id="result-panel" hidden>
+      <div class="res-text">
+        <b id="res-title"></b>
+        <span id="res-reason"></span>
       </div>
-      <div class="result">
-        <div><span class="lbl">Hari bertahan</span><b id="r-day">0</b></div>
-        <div><span class="lbl">Terantar</span><b id="r-deliv">0</b></div>
-        <div><span class="lbl">Rekor</span><b id="r-best">0</b></div>
-      </div>
-      <button id="b-restart" class="primary">Main lagi</button>
+      <div class="result" id="res-stats"></div>
+      <div class="res-actions" id="res-actions"></div>
     </div>
   </footer>
 
@@ -64,13 +62,17 @@
       <h1>Lintas Kota</h1>
       <p class="sub">Hubungkan kota-kota di kepulauan dengan jalur kereta sebelum warganya kehilangan kesabaran.</p>
       <ul>
+        <li><b>Target:</b> sambungkan <b>semua kota</b> di peta dalam satu jaringan. Peta 1 berisi 15 kota, tiap peta berikutnya bertambah 5, sampai 38 ibu kota provinsi. Kota muncul bertahap.</li>
         <li><b>Bangun jalur:</b> klik sebuah kota, lalu klik kota lain untuk memasang rel. Biaya rel tergantung jarak dan medan: melintasi laut (jembatan) dan gunung (terowongan) lebih mahal.</li>
         <li><b>Kereta</b> mengantar penumpang ke kota tujuan, termasuk transit antar-jalur. Tiap penumpang yang sampai menambah kas dan kepuasan.</li>
         <li><b>Titik merah</b> di samping kota = penumpang yang tujuannya belum terjangkau jaringan.</li>
         <li>Kota yang <b>terlalu penuh</b> menurunkan kepuasan. Kepuasan habis = permainan selesai.</li>
       </ul>
       <p class="keys">Spasi: jeda · 1/2/3: kecepatan · Esc: selesai membangun</p>
-      <button id="b-start" class="primary">Mulai</button>
+      <div class="res-actions">
+        <button id="b-start" class="primary">Mulai Peta 1</button>
+        <button id="b-continue" class="primary" hidden>Lanjut Peta 2</button>
+      </div>
       <p class="best" id="best-start"></p>
     </div>
   </div>

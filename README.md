@@ -6,6 +6,21 @@ Game strategi transportasi berbasis browser: hubungkan kota-kota di sebuah kepul
 
 Buka `index.html` di browser. Tidak perlu instalasi atau server.
 
+### Target
+
+Sambungkan **semua kota** di peta dalam satu jaringan. Kota muncul bertahap sampai jumlah kota peta itu tercapai. Kalau semua kota yang sudah ada telah tersambung, kota berikutnya muncul lebih cepat.
+
+| Peta | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| Jumlah kota | 15 | 20 | 25 | 30 | 35 | 38 (semua ibu kota provinsi) |
+| Kas awal | $1500 | $2000 | $2500 | $3000 | $3500 | $4000 |
+
+- **Skor** tiap peta adalah jumlah penumpang terantar. Rekornya disimpan per peta.
+- **Setelah menang** kamu bisa memilih:
+  - lanjut ke peta berikutnya, atau
+  - tetap di peta ini dalam mode santai: kepuasan selalu penuh dan tidak bisa kalah. Tombol "Peta berikutnya" tetap tersedia di bagian atas.
+- **Progres peta** tersimpan di browser. Di layar pembuka ada tombol "Lanjut Peta N".
+
 - **Bangun jalur**: klik sebuah kota, lalu klik kota-kota berikutnya. Setiap ruas rel ada biayanya, tergantung jarak dan medan:
   - darat ×1
   - gunung ×2,5 (terowongan)

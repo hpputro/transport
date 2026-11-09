@@ -20,7 +20,7 @@
   const MAX_TRAINS = 4;
   const UPKEEP = 20;         // biaya perawatan per kereta per hari
   const START_MONEY = 1500;
-  const MAX_CITIES = 18;
+  const LAST_MAP = 6;        // peta 1..6: 15, 20, 25, 30, 35, 38 kota
   const SIZE_CAP = [0, 8, 12, 16];
   const SIZE_R = [0, 13, 16, 20];
   const SIZE_NAME = ['', 'Kota kecil', 'Kota sedang', 'Kota besar'];
@@ -51,8 +51,14 @@
     const a = hexToRgb(h1), b = hexToRgb(h2);
     return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
   }
-  function loadBest() { try { return +localStorage.getItem('lintasKota.best') || 0; } catch (e) { return 0; } }
-  function saveBest(v) { try { localStorage.setItem('lintasKota.best', String(v)); } catch (e) { /* abaikan */ } }
+  function loadNum(key) { try { return +localStorage.getItem('lintasKota.' + key) || 0; } catch (e) { return 0; } }
+  function saveNum(key, v) { try { localStorage.setItem('lintasKota.' + key, String(v)); } catch (e) { /* abaikan */ } }
+  /** Simpan rekor penumpang terantar untuk peta ini; kembalikan rekornya. */
+  function recordBest(level, delivered) {
+    const best = Math.max(loadNum('best.' + level), delivered);
+    saveNum('best.' + level, best);
+    return best;
+  }
 
   // ================= Medan =================
   function makeNoise(rng, gw, gh) {
@@ -176,12 +182,14 @@
   function spawnCity() {
     const rng = S.rng, n = S.cities.length;
     let pos = null;
-    for (let tries = 0; tries < 600 && !pos; tries++) {
+    // makin lama gagal, syarat jarak antarkota dilonggarkan (peta besar bisa berisi 38 kota)
+    for (let tries = 0; tries < 2000 && !pos; tries++) {
       const radius = (n < 3 ? 230 : 300 + n * 45) + tries * 2;
-      const minD = tries < 350 ? 150 : 110;
+      const minD = tries < 350 ? 150 : tries < 800 ? 110 : tries < 1400 ? 85 : 65;
       const x = 70 + rng() * (W - 140), y = 70 + rng() * (H - 140);
       if (Math.hypot(x - W / 2, y - H / 2) > radius) continue;
-      if (terrainAt(x, y) !== LAND || !landAround(x, y, 14)) continue;
+      const ty = terrainAt(x, y);
+      if (!(ty === LAND || (tries >= 1400 && ty === MOUNT)) || !landAround(x, y, 14)) continue;
       if (S.cities.some((c) => Math.hypot(c.x - x, c.y - y) < minD)) continue;
       pos = { x, y };
     }
@@ -233,6 +241,12 @@
       S.dist.push(d);
     }
     S.connected = adj.map((s) => s.size > 0);
+    // ukuran jaringan terbesar (jumlah kota yang saling terhubung)
+    S.largest = 0;
+    for (let s = 0; s < n; s++) {
+      if (!S.connected[s]) continue;
+      S.largest = Math.max(S.largest, S.dist[s].filter(isFinite).length);
+    }
   }
   const D = (a, b) => S.dist[a][b];
 
@@ -399,12 +413,17 @@
   }
 
   // ================= Siklus permainan =================
-  function newGame(seed) {
+  const mapCities = (level) => Math.min(CAPITALS.length, 10 + 5 * level);
+  /** Input & simulasi berhenti saat belum mulai, kalah, atau sedang memilih setelah menang. */
+  const blocked = () => !S || !S.started || S.over || S.winChoice;
+
+  function newGame(seed, level) {
     S = {
-      seed, rng: mulberry32(seed),
-      t: 0, day: 1, money: START_MONEY, earned: 0, delivered: 0, satisfaction: 100,
-      cities: [], lines: [], trains: [], dist: [], segMap: new Map(), connected: [],
+      seed, rng: mulberry32(seed), level, target: mapCities(level),
+      t: 0, day: 1, money: START_MONEY + (level - 1) * 500, earned: 0, delivered: 0, satisfaction: 100,
+      cities: [], lines: [], trains: [], dist: [], segMap: new Map(), connected: [], largest: 0,
       nextCityAt: 14, speed: 1, paused: false, started: false, over: false,
+      won: false, winChoice: false, relaxed: false,
       selected: null, building: false, buildEnd: 'tail', unlocked: 3,
       particles: [],
     };
@@ -425,10 +444,15 @@
       S.money -= cost;
       toast(cost ? `Hari ${day} · perawatan kereta -$${cost}` : `Hari ${day}`);
     }
-    if (S.t >= S.nextCityAt && S.cities.length < MAX_CITIES) {
-      const c = spawnCity();
-      S.nextCityAt = S.t + 17 + S.cities.length * 1.3;
-      if (c) toast(`Kota baru muncul: ${c.name}`, 'good');
+    if (S.cities.length < S.target) {
+      // semua kota yang ada sudah tersambung → kota berikutnya datang lebih cepat
+      if (S.largest === S.cities.length) S.nextCityAt = Math.min(S.nextCityAt, S.t + 5);
+      if (S.t >= S.nextCityAt) {
+        const c = spawnCity();
+        S.nextCityAt = S.t + 15 + S.cities.length * 0.6;
+        if (c) toast(`Kota baru muncul: ${c.name} (${S.cities.length}/${S.target})`, 'good');
+        else S.target = S.cities.length; // peta sudah terlalu padat; target disesuaikan
+      }
     }
     const mult = 1 + 0.06 * (S.day - 1);
     for (const c of S.cities) {
@@ -440,7 +464,7 @@
       const cap = SIZE_CAP[c.size];
       if (c.wait.length > cap) {
         c.overT += dt;
-        S.satisfaction -= Math.min(3, 0.7 + 0.25 * (c.wait.length - cap)) * dt;
+        if (!S.relaxed) S.satisfaction -= Math.min(3, 0.7 + 0.25 * (c.wait.length - cap)) * dt;
       } else {
         c.overT = Math.max(0, c.overT - dt * 2);
       }
@@ -455,30 +479,101 @@
       toast(`Jalur ${LINE_NAMES[unlocked - 1]} terbuka!`, 'good');
       renderChips();
     }
-    if (S.satisfaction <= 0) gameOver();
+    if (S.relaxed) S.satisfaction = 100;
+    if (!S.won && S.cities.length >= S.target && S.largest === S.cities.length) win();
+    else if (S.satisfaction <= 0) gameOver();
+  }
+
+  /** Tampilkan panel hasil di bawah layar (peta tetap terlihat dan bisa digeser/zoom). */
+  function showResult({ title, kind, reason, stats, actions }) {
+    S.building = false;
+    $('toasts').innerHTML = '';
+    $('res-title').textContent = title;
+    $('res-title').className = kind;
+    $('res-reason').textContent = reason;
+    $('res-stats').innerHTML = '';
+    for (const [label, value] of stats) {
+      const d = document.createElement('div');
+      d.innerHTML = '<span class="lbl"></span><b></b>';
+      d.firstChild.textContent = label;
+      d.lastChild.textContent = value;
+      $('res-stats').appendChild(d);
+    }
+    $('res-actions').innerHTML = '';
+    for (const a of actions) {
+      const b = document.createElement('button');
+      b.textContent = a.label;
+      if (a.primary) b.className = 'primary';
+      b.addEventListener('click', a.fn);
+      $('res-actions').appendChild(b);
+    }
+    $('hud-bottom').classList.add('is-result');
+    $('result-panel').hidden = false;
+    resize();
+  }
+
+  function hideResult() {
+    $('hud-bottom').classList.remove('is-result');
+    $('result-panel').hidden = true;
+    resize();
+  }
+
+  function win() {
+    S.won = true;
+    S.winChoice = true;
+    const best = recordBest(S.level, S.delivered);
+    const last = S.level >= LAST_MAP;
+    if (!last) saveNum('map', Math.max(loadNum('map'), S.level + 1));
+    const actions = [];
+    if (!last) actions.push({ label: `Lanjut ke Peta ${S.level + 1} (${mapCities(S.level + 1)} kota)`, primary: true, fn: () => startMap(S.level + 1) });
+    actions.push({ label: 'Tetap di peta ini', primary: last, fn: stayRelaxed });
+    if (last) actions.push({ label: 'Main lagi dari Peta 1', fn: () => startMap(1) });
+    showResult({
+      title: last ? 'Nusantara tersambung! Semua peta tamat.' : `Peta ${S.level} selesai!`,
+      kind: 'good',
+      reason: `Semua ${S.cities.length} kota terhubung dalam satu jaringan. Kalau tetap di peta ini, kepuasan selalu penuh dan kamu tidak bisa kalah.`,
+      stats: [['Penumpang terantar', S.delivered], [`Rekor peta ${S.level}`, best], ['Hari', S.day]],
+      actions,
+    });
+  }
+
+  function stayRelaxed() {
+    S.winChoice = false;
+    S.relaxed = true;
+    S.satisfaction = 100;
+    hideResult();
+    refreshUi();
+    toast('Mode santai: kepuasan selalu penuh. Lanjutkan sesukamu!', 'good');
   }
 
   function gameOver() {
     S.satisfaction = 0;
     S.over = true;
-    S.building = false;
     const excess = (c) => c.wait.length - SIZE_CAP[c.size];
     const full = S.cities.filter((c) => excess(c) > 0).sort((a, b) => excess(b) - excess(a));
-    const best = Math.max(loadBest(), S.delivered);
-    saveBest(best);
+    const best = recordBest(S.level, S.delivered);
     const names = full.slice(0, 4).map((c) => `${c.name} (${c.wait.length}/${SIZE_CAP[c.size]})`).join(', ');
-    $('over-reason').textContent = full.length
-      ? `Kota penuh: ${names}${full.length > 4 ? `, +${full.length - 4} lainnya` : ''}. Kota bertanda merah di peta.`
-      : 'Kepuasan warga habis.';
-    $('r-day').textContent = S.day;
-    $('r-deliv').textContent = S.delivered;
-    $('r-best').textContent = best;
-    $('toasts').innerHTML = '';
-    // ringkasan hasil tampil di panel bawah, peta tetap terlihat dan bisa digeser/zoom
-    $('hud-bottom').classList.add('is-over');
-    $('over-panel').hidden = false;
-    resize();
+    showResult({
+      title: 'Jaringan kewalahan!',
+      kind: 'bad',
+      reason: full.length
+        ? `Kota penuh: ${names}${full.length > 4 ? `, +${full.length - 4} lainnya` : ''}. Kota bertanda merah di peta.`
+        : 'Kepuasan warga habis.',
+      stats: [['Penumpang terantar', S.delivered], [`Rekor peta ${S.level}`, best], ['Kota terhubung', `${Math.max(0, S.largest)}/${S.target}`]],
+      actions: [{ label: `Ulangi Peta ${S.level}`, primary: true, fn: () => startMap(S.level) }],
+    });
     if (full.length) { view.cx = full[0].x; view.cy = full[0].y; applyView(); }
+  }
+
+  function startMap(level) {
+    newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, level);
+    view.needsInit = true;
+    S.started = true;
+    $('overlay').hidden = true;
+    hideResult();
+    setSpeed(1);
+    refreshUi();
+    toast(`Peta ${level}: hubungkan ${S.target} kota dalam satu jaringan`);
   }
 
   // ================= Input =================
@@ -553,7 +648,7 @@
   }
 
   function onPointerDown(e) {
-    if (!S || !S.started || S.over) return;
+    if (blocked()) return;
     const p = toWorld(e.clientX, e.clientY);
     mouse.x = p.x; mouse.y = p.y; mouse.cx = e.clientX; mouse.cy = e.clientY; mouse.inside = true;
     const c = cityAt(p);
@@ -602,7 +697,7 @@
 
   canvas.addEventListener('pointerdown', (e) => {
     trackMouse(e);
-    if (e.button === 2) { if (S && S.started && !S.over) stopBuilding(); return; }
+    if (e.button === 2) { if (!blocked()) stopBuilding(); return; }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* abaikan */ }
     if (pointers.size === 1) {
@@ -650,7 +745,7 @@
   }, { passive: false });
 
   window.addEventListener('keydown', (e) => {
-    if (!S || !S.started || S.over) return;
+    if (blocked()) return;
     if (e.code === 'Space') { e.preventDefault(); setSpeed(S.paused ? S.speed : 0); }
     else if (e.key === '1' || e.key === '2' || e.key === '3') setSpeed(+e.key);
     else if (e.key === 'Escape') { if (S.building) stopBuilding(); else selectLine(null); }
@@ -667,7 +762,7 @@
     });
   }
   document.querySelectorAll('.speed button').forEach((b) => b.addEventListener('click', () => {
-    if (S && S.started && !S.over) setSpeed(+b.dataset.speed);
+    if (!blocked()) setSpeed(+b.dataset.speed);
   }));
 
   $('b-extend').addEventListener('click', () => { if (S.selected) { S.building = true; S.buildEnd = 'tail'; refreshUi(); } });
@@ -693,20 +788,14 @@
   });
 
   $('b-start').addEventListener('click', () => {
+    // peta 1 sudah dibuat di latar belakang layar pembuka
     S.started = true;
     $('overlay').hidden = true;
     setSpeed(1);
-    toast('Klik sebuah kota untuk mulai membangun jalur');
+    toast(`Peta 1: hubungkan ${S.target} kota · klik sebuah kota untuk mulai membangun jalur`);
   });
-  $('b-restart').addEventListener('click', () => {
-    newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-    view.needsInit = true;
-    S.started = true;
-    $('hud-bottom').classList.remove('is-over');
-    $('over-panel').hidden = true;
-    setSpeed(1);
-    resize();
-  });
+  $('b-continue').addEventListener('click', () => startMap(Math.min(LAST_MAP, loadNum('map'))));
+  $('b-next').addEventListener('click', () => { if (S.won && S.level < LAST_MAP) startMap(S.level + 1); });
 
   // ================= UI DOM =================
   function toast(msg, kind) {
@@ -744,7 +833,7 @@
       }
       if (S.selected && S.selected.id === i) b.classList.add('sel');
       b.addEventListener('click', () => {
-        if (!S.started || S.over) return;
+        if (blocked()) return;
         if (i >= S.unlocked) { toast(`Antar ${UNLOCK_AT[i]} penumpang untuk membuka jalur ${LINE_NAMES[i]}`); return; }
         const cur = S.lines.find((l) => l.id === i);
         if (cur) { selectLine(S.selected === cur && !S.building ? null : cur); return; }
@@ -804,9 +893,16 @@
 
   let lastHud = '';
   function updateHud() {
-    const key = [S.day, Math.round(S.money), S.delivered, Math.round(S.satisfaction)].join('|');
+    const key = [S.level, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.delivered, Math.round(S.satisfaction)].join('|');
     if (key !== lastHud) {
       lastHud = key;
+      $('s-map').textContent = `Peta ${S.level}${S.relaxed ? ' · santai' : ''}`;
+      // jumlah kota dalam jaringan terbesar / target kota peta ini
+      $('s-conn').textContent = `${S.largest}/${S.target} terhubung`;
+      $('s-conn').title = `${S.cities.length} dari ${S.target} kota sudah muncul`;
+      $('s-sat-lbl').textContent = S.relaxed ? 'Kepuasan (aman)' : 'Kepuasan';
+      $('b-next').hidden = !(S.relaxed && S.level < LAST_MAP);
+      $('b-next').textContent = `Peta ${S.level + 1} →`;
       $('s-day').textContent = S.day;
       const m = $('s-money');
       m.textContent = `$${Math.round(S.money)}`;
@@ -1071,7 +1167,7 @@
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    if (S.started && !S.over && !S.paused) {
+    if (!blocked() && !S.paused) {
       for (let k = 0; k < S.speed; k++) update(dt);
     }
     draw(now / 1000);
@@ -1079,9 +1175,16 @@
     requestAnimationFrame(frame);
   }
 
-  newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-  const best = loadBest();
-  if (best) $('best-start').textContent = `Rekor kamu: ${best} penumpang terantar`;
+  newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, 1);
+  const reached = Math.min(LAST_MAP, loadNum('map'));
+  if (reached > 1) {
+    $('b-continue').hidden = false;
+    $('b-continue').textContent = `Lanjut Peta ${reached} (${mapCities(reached)} kota)`;
+    $('b-start').classList.remove('primary');
+  }
+  const bests = [];
+  for (let l = 1; l <= LAST_MAP; l++) { const b = loadNum('best.' + l); if (b) bests.push(`Peta ${l}: ${b}`); }
+  if (bests.length) $('best-start').textContent = `Rekor penumpang terantar · ${bests.join(' · ')}`;
   resize();
   requestAnimationFrame(frame);
 
