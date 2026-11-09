@@ -22,7 +22,7 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
 | 6 | + Bali & Nusa Tenggara | 36 | $6500 |
 | 7 | + Maluku | 38 (semua) | $7500 |
 
-- **Skor** tiap peta adalah jumlah penumpang terantar. Rekornya disimpan per peta.
+- **Skor** tiap peta adalah **populasi negara**, yaitu jumlah populasi semua kota (lihat "Status kota" di bawah). Rekornya disimpan per peta.
 - **Setelah menang** kamu bisa memilih:
   - lanjut ke peta berikutnya, atau
   - tetap di peta ini dalam mode santai: kepuasan selalu penuh dan tidak bisa kalah. Tombol "Peta berikutnya" tetap tersedia di bagian atas.
@@ -44,8 +44,10 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
   - Titik gelap: penumpang yang sudah punya rute.
   - Titik merah: tujuannya belum terhubung ke jaringan.
 - **Pendapatan**: tarif = $10 + $5 × jumlah stasiun yang dilewati. Biaya perawatan $20 per kereta per hari.
-- **Pertumbuhan**: kota yang sering didatangi penumpang tumbuh lebih besar. Kota besar menampung lebih banyak orang, tetapi juga menghasilkan lebih banyak penumpang.
-- **Jalur baru** terbuka setelah 40, 120, dan 250 penumpang terantar.
+- **Status kota** (tampil di tooltip kota):
+  - **Dikunjungi**: jumlah penumpang yang turun di kota itu, baik yang sampai tujuan maupun yang transit pindah jalur. Penumpang yang hanya lewat di dalam kereta tidak dihitung. Ini syarat naik level: 40 kunjungan menjadi kota sedang, 120 menjadi kota besar. Kota besar menampung lebih banyak orang, tetapi juga menghasilkan lebih banyak penumpang. Kota transit yang ramai naik level lebih cepat.
+  - **Populasi**: jumlah penumpang yang diantar ke kota itu sebagai tujuan akhir. Populasi semua kota dijumlahkan menjadi **populasi negara** (HUD atas), yang jadi skor permainan.
+- **Jalur baru** terbuka setelah populasi negara mencapai 40, 120, dan 250.
 - **Kalah**: kota yang terlalu penuh (lingkaran merah berkedip) menurunkan kepuasan. Kalau kepuasan habis, permainan selesai.
 
 ## Kontrol

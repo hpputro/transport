@@ -13,7 +13,7 @@
 
   const LINE_COLORS = ['#e63946', '#1f78d1', '#f0a202', '#2a9d4b', '#8e44ad', '#e0609a'];
   const LINE_NAMES = ['Merah', 'Biru', 'Kuning', 'Hijau', 'Ungu', 'Merah Muda'];
-  const UNLOCK_AT = [0, 0, 0, 40, 120, 250]; // jumlah penumpang terantar untuk membuka jalur
+  const UNLOCK_AT = [0, 0, 0, 40, 120, 250]; // populasi negara yang dibutuhkan untuk membuka jalur
 
   const DAY_LEN = 20;        // detik per hari permainan
   const TRAIN_SPEED = 110;   // px per detik (±1,2° per detik)
@@ -67,9 +67,9 @@
   }
   function loadNum(key) { try { return +localStorage.getItem('lintasKota.' + key) || 0; } catch (e) { return 0; } }
   function saveNum(key, v) { try { localStorage.setItem('lintasKota.' + key, String(v)); } catch (e) { /* abaikan */ } }
-  /** Simpan rekor penumpang terantar untuk peta ini; kembalikan rekornya. */
-  function recordBest(level, delivered) {
-    const best = Math.max(loadNum('best.' + level), delivered);
+  /** Simpan rekor populasi negara untuk peta ini; kembalikan rekornya. */
+  function recordBest(level, population) {
+    const best = Math.max(loadNum('best.' + level), population);
     saveNum('best.' + level, best);
     return best;
   }
@@ -234,7 +234,7 @@
     if (!def) return null;
     const city = {
       id: S.cities.length, name: def.name, region: def.region, label: def.label, x: def.x, y: def.y,
-      size: 1, growth: 0, wait: [], acc: S.rng() * 0.6, born: S.t, overT: 0,
+      size: 1, visits: 0, pop: 0, wait: [], acc: S.rng() * 0.6, born: S.t, overT: 0,
     };
     S.cities.push(city);
     recomputeNetwork();
@@ -416,7 +416,7 @@
     const keep = [];
     for (const p of tr.pax) {
       if (p.dest === ci) { deliver(p, city); moved++; }
-      else if (N < 0 || !(D(N, p.dest) < D(ci, p.dest))) { city.wait.push(p); moved++; } // transit
+      else if (N < 0 || !(D(N, p.dest) < D(ci, p.dest))) { city.wait.push(p); addVisit(city); moved++; } // transit
       else keep.push(p);
     }
     tr.pax = keep;
@@ -430,17 +430,23 @@
     return moved;
   }
 
+  /** Kunjungan = penumpang yang turun di kota ini (sampai tujuan atau transit). Jadi syarat naik level. */
+  function addVisit(city) {
+    city.visits++;
+    if (city.size < 3 && city.visits >= GROW_AT[city.size]) {
+      city.size++;
+      toast(`${city.name} berkembang menjadi ${SIZE_NAME[city.size].toLowerCase()}!`, 'good');
+    }
+  }
+
   function deliver(p, city) {
     const fare = 10 + 5 * p.hops;
     S.money += fare;
     S.earned += fare;
-    S.delivered++;
+    S.population++;   // populasi negara = jumlah populasi semua kota
+    city.pop++;       // populasi kota = penumpang yang diantar ke kota ini sebagai tujuan
     S.satisfaction = Math.min(100, S.satisfaction + 0.6);
-    city.growth++;
-    if (city.size < 3 && city.growth >= GROW_AT[city.size]) {
-      city.size++;
-      toast(`${city.name} berkembang menjadi ${SIZE_NAME[city.size].toLowerCase()}!`, 'good');
-    }
+    addVisit(city);
     if (S.particles.length < 40) S.particles.push({ x: city.x, y: city.y - 18, text: `+$${fare}`, life: 1.2, color: '#1e7a3a' });
   }
 
@@ -483,7 +489,7 @@
   function newGame(seed, level) {
     S = {
       seed, rng: mulberry32(seed), level, target: mapCities(level),
-      t: 0, day: 1, money: START_MONEY + (level - 1) * 1000, earned: 0, delivered: 0, satisfaction: 100,
+      t: 0, day: 1, money: START_MONEY + (level - 1) * 1000, earned: 0, population: 0, satisfaction: 100,
       cities: [], lines: [], trains: [], dist: [], segMap: new Map(), connected: [], largest: 0,
       nextCityAt: 14, speed: 1, paused: false, started: false, over: false,
       won: false, winChoice: false, relaxed: false,
@@ -536,7 +542,7 @@
     for (const p of S.particles) { p.life -= dt; p.y -= 14 * dt; }
     S.particles = S.particles.filter((p) => p.life > 0);
 
-    const unlocked = UNLOCK_AT.filter((v) => S.delivered >= v).length;
+    const unlocked = UNLOCK_AT.filter((v) => S.population >= v).length;
     if (unlocked > S.unlocked) {
       S.unlocked = unlocked;
       toast(`Jalur ${LINE_NAMES[unlocked - 1]} terbuka!`, 'good');
@@ -584,7 +590,7 @@
   function win() {
     S.won = true;
     S.winChoice = true;
-    const best = recordBest(S.level, S.delivered);
+    const best = recordBest(S.level, S.population);
     const last = S.level >= LAST_MAP;
     if (!last) saveNum('map', Math.max(loadNum('map'), S.level + 1));
     const actions = [];
@@ -595,7 +601,7 @@
       title: last ? 'Nusantara tersambung! Semua peta tamat.' : `Peta ${S.level} (${levelTitle(S.level)}) selesai!`,
       kind: 'good',
       reason: `Semua ${S.cities.length} kota terhubung dalam satu jaringan. Kalau tetap di peta ini, kepuasan selalu penuh dan kamu tidak bisa kalah.`,
-      stats: [['Penumpang terantar', S.delivered], [`Rekor peta ${S.level}`, best], ['Hari', S.day]],
+      stats: [['Populasi negara', S.population], [`Rekor populasi peta ${S.level}`, best], ['Hari', S.day]],
       actions,
     });
   }
@@ -614,7 +620,7 @@
     S.over = true;
     const excess = (c) => c.wait.length - SIZE_CAP[c.size];
     const full = S.cities.filter((c) => excess(c) > 0).sort((a, b) => excess(b) - excess(a));
-    const best = recordBest(S.level, S.delivered);
+    const best = recordBest(S.level, S.population);
     const names = full.slice(0, 4).map((c) => `${c.name} (${c.wait.length}/${SIZE_CAP[c.size]})`).join(', ');
     showResult({
       title: 'Jaringan kewalahan!',
@@ -622,7 +628,7 @@
       reason: full.length
         ? `Kota penuh: ${names}${full.length > 4 ? `, +${full.length - 4} lainnya` : ''}. Kota bertanda merah di peta.`
         : 'Kepuasan warga habis.',
-      stats: [['Penumpang terantar', S.delivered], [`Rekor peta ${S.level}`, best], ['Kota terhubung', `${Math.max(0, S.largest)}/${S.target}`]],
+      stats: [['Populasi negara', S.population], [`Rekor populasi peta ${S.level}`, best], ['Kota terhubung', `${Math.max(0, S.largest)}/${S.target}`]],
       actions: [{ label: `Ulangi Peta ${S.level}`, primary: true, fn: () => startMap(S.level) }],
     });
     if (full.length) { view.cx = full[0].x; view.cy = full[0].y; applyView(); }
@@ -736,7 +742,7 @@
       }
       const slot = freeSlot();
       if (slot < 0) {
-        toast(S.unlocked < 6 ? 'Semua jalur terpakai. Antar lebih banyak penumpang untuk membuka jalur baru.' : 'Semua jalur sudah terpakai.', 'bad');
+        toast(S.unlocked < 6 ? 'Semua jalur terpakai. Tambah populasi negara untuk membuka jalur baru.' : 'Semua jalur sudah terpakai.', 'bad');
         return;
       }
       const line = newLine(slot);
@@ -899,7 +905,7 @@
       if (i >= S.unlocked) {
         b.classList.add('locked');
         b.textContent = '🔒';
-        b.title = `Terbuka setelah ${UNLOCK_AT[i]} penumpang terantar`;
+        b.title = `Terbuka setelah populasi negara ${UNLOCK_AT[i]}`;
       } else if (!L) {
         b.classList.add('free');
         b.textContent = '+';
@@ -911,7 +917,7 @@
       if (S.selected && S.selected.id === i) b.classList.add('sel');
       b.addEventListener('click', () => {
         if (blocked()) return;
-        if (i >= S.unlocked) { toast(`Antar ${UNLOCK_AT[i]} penumpang untuk membuka jalur ${LINE_NAMES[i]}`); return; }
+        if (i >= S.unlocked) { toast(`Jalur ${LINE_NAMES[i]} terbuka setelah populasi negara ${UNLOCK_AT[i]}`); return; }
         const cur = S.lines.find((l) => l.id === i);
         if (cur) { selectLine(S.selected === cur && !S.building ? null : cur); return; }
         if (S.building) stopBuilding();
@@ -972,7 +978,7 @@
 
   let lastHud = '';
   function updateHud() {
-    const key = [S.level, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.delivered, Math.round(S.satisfaction)].join('|');
+    const key = [S.level, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.population, Math.round(S.satisfaction)].join('|');
     if (key !== lastHud) {
       lastHud = key;
       const newest = regionName(GEO.LEVEL_REGIONS[S.level - 1]);
@@ -988,7 +994,7 @@
       const m = $('s-money');
       m.textContent = `$${Math.round(S.money)}`;
       m.classList.toggle('neg', S.money < 0);
-      $('s-deliv').textContent = S.delivered;
+      $('s-deliv').textContent = S.population;
       const sat = $('s-sat');
       sat.style.width = clamp(S.satisfaction, 0, 100) + '%';
       sat.style.background = S.satisfaction > 60 ? '#2a9d4b' : S.satisfaction > 30 ? '#f0a202' : '#d64045';
@@ -1006,11 +1012,11 @@
     const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3)
       .map(([id, n]) => `${S.cities[id].name} (${n})`).join(', ');
     const lines = S.lines.filter((l) => l.stations.includes(c.id)).map((l) => l.name).join(', ');
-    const growth = c.size < 3
-      ? `\nMenuju ${SIZE_NAME[c.size + 1].toLowerCase()}: ${c.growth}/${GROW_AT[c.size]} penumpang tiba`
-      : `\nUkuran maksimal (${c.growth} penumpang tiba)`;
+    const visits = c.size < 3
+      ? `\nDikunjungi: ${c.visits}/${GROW_AT[c.size]} menuju ${SIZE_NAME[c.size + 1].toLowerCase()}`
+      : `\nDikunjungi: ${c.visits} (ukuran maksimal)`;
     const appeal = crowdFactor(c);
-    tip.textContent = `${c.name} · ${SIZE_NAME[c.size]}${growth}\nMenunggu: ${c.wait.length}/${cap}` +
+    tip.textContent = `${c.name} · ${SIZE_NAME[c.size]}\nPopulasi: ${c.pop}${visits}\nMenunggu: ${c.wait.length}/${cap}` +
       (appeal < 1 ? `\nTerlalu padat: minat dikunjungi ${Math.round(appeal * 100)}%` : '') +
       (noRoute ? `\nBelum ada rute: ${noRoute}` : '') +
       (top ? `\nTujuan: ${top}` : '') +
@@ -1299,7 +1305,7 @@
   }
   const bests = [];
   for (let l = 1; l <= LAST_MAP; l++) { const b = loadNum('best.' + l); if (b) bests.push(`Peta ${l}: ${b}`); }
-  if (bests.length) $('best-start').textContent = `Rekor penumpang terantar · ${bests.join(' · ')}`;
+  if (bests.length) $('best-start').textContent = `Rekor populasi negara · ${bests.join(' · ')}`;
   resize();
   requestAnimationFrame(frame);
 
