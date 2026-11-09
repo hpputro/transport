@@ -41,6 +41,19 @@
       </div>
     </div>
     <div id="hint"></div>
+    <!-- hasil akhir: ditampilkan di panel bawah supaya peta tetap terlihat -->
+    <div id="over-panel" hidden>
+      <div class="over-text">
+        <b class="over-title">Jaringan kewalahan!</b>
+        <span id="over-reason"></span>
+      </div>
+      <div class="result">
+        <div><span class="lbl">Hari bertahan</span><b id="r-day">0</b></div>
+        <div><span class="lbl">Terantar</span><b id="r-deliv">0</b></div>
+        <div><span class="lbl">Rekor</span><b id="r-best">0</b></div>
+      </div>
+      <button id="b-restart" class="primary">Main lagi</button>
+    </div>
   </footer>
 
   <div id="toasts"></div>
@@ -59,16 +72,6 @@
       <p class="keys">Spasi: jeda · 1/2/3: kecepatan · Esc: selesai membangun</p>
       <button id="b-start" class="primary">Mulai</button>
       <p class="best" id="best-start"></p>
-    </div>
-    <div class="card" id="card-over" hidden>
-      <h1>Jaringan kewalahan!</h1>
-      <p class="sub" id="over-reason"></p>
-      <div class="result">
-        <div><span class="lbl">Hari bertahan</span><b id="r-day">0</b></div>
-        <div><span class="lbl">Penumpang terantar</span><b id="r-deliv">0</b></div>
-        <div><span class="lbl">Rekor</span><b id="r-best">0</b></div>
-      </div>
-      <button id="b-restart" class="primary">Main lagi</button>
     </div>
   </div>
 

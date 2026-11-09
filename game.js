@@ -463,16 +463,23 @@
     S.satisfaction = 0;
     S.over = true;
     S.building = false;
-    const worst = S.cities.reduce((a, b) => (b.wait.length - SIZE_CAP[b.size] > a.wait.length - SIZE_CAP[a.size] ? b : a));
+    const excess = (c) => c.wait.length - SIZE_CAP[c.size];
+    const full = S.cities.filter((c) => excess(c) > 0).sort((a, b) => excess(b) - excess(a));
     const best = Math.max(loadBest(), S.delivered);
     saveBest(best);
-    $('over-reason').textContent = `Warga ${worst.name} sudah tidak sabar lagi menunggu kereta.`;
+    const names = full.slice(0, 4).map((c) => `${c.name} (${c.wait.length}/${SIZE_CAP[c.size]})`).join(', ');
+    $('over-reason').textContent = full.length
+      ? `Kota penuh: ${names}${full.length > 4 ? `, +${full.length - 4} lainnya` : ''}. Kota bertanda merah di peta.`
+      : 'Kepuasan warga habis.';
     $('r-day').textContent = S.day;
     $('r-deliv').textContent = S.delivered;
     $('r-best').textContent = best;
-    $('card-start').hidden = true;
-    $('card-over').hidden = false;
-    $('overlay').hidden = false;
+    $('toasts').innerHTML = '';
+    // ringkasan hasil tampil di panel bawah, peta tetap terlihat dan bisa digeser/zoom
+    $('hud-bottom').classList.add('is-over');
+    $('over-panel').hidden = false;
+    resize();
+    if (full.length) { view.cx = full[0].x; view.cy = full[0].y; applyView(); }
   }
 
   // ================= Input =================
@@ -696,7 +703,8 @@
     newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0);
     view.needsInit = true;
     S.started = true;
-    $('overlay').hidden = true;
+    $('hud-bottom').classList.remove('is-over');
+    $('over-panel').hidden = true;
     setSpeed(1);
     resize();
   });
@@ -821,7 +829,10 @@
     const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3)
       .map(([id, n]) => `${S.cities[id].name} (${n})`).join(', ');
     const lines = S.lines.filter((l) => l.stations.includes(c.id)).map((l) => l.name).join(', ');
-    tip.textContent = `${c.name} · ${SIZE_NAME[c.size]}\nMenunggu: ${c.wait.length}/${cap}` +
+    const growth = c.size < 3
+      ? `\nMenuju ${SIZE_NAME[c.size + 1].toLowerCase()}: ${c.growth}/${GROW_AT[c.size]} penumpang tiba`
+      : `\nUkuran maksimal (${c.growth} penumpang tiba)`;
+    tip.textContent = `${c.name} · ${SIZE_NAME[c.size]}${growth}\nMenunggu: ${c.wait.length}/${cap}` +
       (noRoute ? `\nBelum ada rute: ${noRoute}` : '') +
       (top ? `\nTujuan: ${top}` : '') +
       `\nJalur: ${lines || 'belum terhubung'}`;
@@ -1037,6 +1048,23 @@
     ctx.strokeText(c.name, c.x, c.y + r + 20);
     ctx.fillStyle = '#1f2433';
     ctx.fillText(c.name, c.x, c.y + r + 20);
+    // setelah kalah: tandai kota yang penuh supaya mudah ditemukan
+    if (S.over && c.wait.length > cap) {
+      const pulse = Math.sin(now * 5);
+      ctx.strokeStyle = '#d64045';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(c.x, c.y, r + 18 + pulse * 4, 0, Math.PI * 2); ctx.stroke();
+      const label = `PENUH ${c.wait.length}/${cap}`;
+      ctx.font = '800 13px system-ui, sans-serif';
+      const w = ctx.measureText(label).width + 14;
+      const by = c.y - r - 40;
+      ctx.fillStyle = '#d64045';
+      roundRect(c.x - w / 2, by - 11, w, 22, 11); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, c.x, by + 1);
+      ctx.textBaseline = 'alphabetic';
+    }
   }
 
   // ================= Loop utama =================
