@@ -1095,27 +1095,92 @@
     updatePanel();
     updateHint();
     resize();
+    cityPanel.last = 0; // perbarui panel samping segera
   }
 
-  // ---- panel daftar kota ----
+  // ---- panel samping: daftar kota / daftar jalur ----
   const LEVEL_CODE = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // 0 = Kampung, I = Dusun … VIII = Kapital
-  const PANEL_W = 330;  // sama dengan lebar #city-panel di style.css
+  const PANEL_W = 400;  // sama dengan lebar #city-panel di style.css
   const wideScreen = () => window.innerWidth >= 900; // di layar lebar panel berdampingan dengan peta
   const cityPanel = {
+    // mode: 'cities' | 'lines'; open = panel tampil
+    mode: (() => { try { return localStorage.getItem('lintasKota.panelMode') === 'lines' ? 'lines' : 'cities'; } catch (e) { return 'cities'; } })(),
     open: (() => { try { const v = localStorage.getItem('lintasKota.cityPanel'); return v == null ? wideScreen() : v === '1'; } catch (e) { return wideScreen(); } })(),
     last: 0,
   };
 
-  function setCityPanel(open) {
-    cityPanel.open = open;
-    try { localStorage.setItem('lintasKota.cityPanel', open ? '1' : '0'); } catch (e) { /* abaikan */ }
-    $('city-panel').hidden = !open;
-    $('b-cities').classList.toggle('active', open);
+  /** Tampilkan panel dengan isi `mode`, atau tutup panel (mode = null). */
+  function setPanel(mode) {
+    cityPanel.open = !!mode;
+    if (mode) cityPanel.mode = mode;
+    try {
+      localStorage.setItem('lintasKota.cityPanel', mode ? '1' : '0');
+      localStorage.setItem('lintasKota.panelMode', cityPanel.mode);
+    } catch (e) { /* abaikan */ }
+    applyPanelUi();
     cityPanel.last = 0;
     resize();
   }
-  $('b-cities').addEventListener('click', () => setCityPanel(!cityPanel.open));
-  $('cp-close').addEventListener('click', () => setCityPanel(false));
+  function applyPanelUi() {
+    const lines = cityPanel.mode === 'lines';
+    $('city-panel').hidden = !cityPanel.open;
+    $('cp-title').textContent = lines ? 'Daftar jalur' : 'Daftar kota';
+    $('cp-cities').hidden = lines;
+    $('cp-note-cities').hidden = lines;
+    $('cp-lines').hidden = !lines;
+    $('cp-note-lines').hidden = !lines;
+    $('b-cities').classList.toggle('active', cityPanel.open && !lines);
+    $('b-lines').classList.toggle('active', cityPanel.open && lines);
+  }
+  const setCityPanel = (open) => setPanel(open ? 'cities' : null);
+  // klik tombol yang sedang aktif = tutup panel; tombol lain = ganti isi panel
+  const togglePanel = (mode) => setPanel(cityPanel.open && cityPanel.mode === mode ? null : mode);
+  $('b-cities').addEventListener('click', () => togglePanel('cities'));
+  $('b-lines').addEventListener('click', () => togglePanel('lines'));
+  $('cp-close').addEventListener('click', () => setPanel(null));
+
+  /** Isi tabel jalur: No | Jalur | Kota | Jarak | Kereta | Gerbong | Okupansi. */
+  function renderLinePanel() {
+    const lines = S.lines.filter((L) => L.stations.length >= 2);
+    $('cp-count').textContent = `${lines.length}/${S.unlocked} jalur`;
+    const body = $('ln-body');
+    if (!lines.length) {
+      body.innerHTML = '<tr><td class="empty" colspan="7">Belum ada jalur. Klik sebuah kota untuk mulai membangun.</td></tr>';
+      return;
+    }
+    if (body.children.length !== lines.length || body.querySelector('.empty')) {
+      body.innerHTML = '';
+      for (let k = 0; k < lines.length; k++) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td></td><td><span class="swatch"></span><span></span></td><td></td><td></td><td></td><td></td><td></td>';
+        tr.addEventListener('click', () => {
+          const L = S.lines.find((l) => l.id === +tr.dataset.id);
+          if (L) { selectLine(L); if (!wideScreen()) setPanel(null); }
+        });
+        body.appendChild(tr);
+      }
+    }
+    lines.forEach((L, k) => {
+      const tr = body.children[k];
+      tr.dataset.id = L.id;
+      tr.className = S.selected === L ? 'sel' : '';
+      let len = 0;
+      for (let s = 0; s + 1 < L.stations.length; s++) len += dist(S.cities[L.stations[s]], S.cities[L.stations[s + 1]]);
+      const km = Math.round((len / PX_PER_DEG) * 111); // 1° ≈ 111 km
+      const onboard = L.trains.reduce((a, t) => a + t.pax.length, 0), seats = L.trains.length * L.cap;
+      const gerbong = 1 + (L.cap - BASE_CAP) / CAP_STEP;
+      const c = tr.children;
+      c[0].textContent = k + 1;
+      c[1].firstChild.style.background = L.color;
+      c[1].lastChild.textContent = L.name;
+      c[2].textContent = L.stations.length;
+      c[3].textContent = `${km.toLocaleString('id-ID')} km`;
+      c[4].textContent = L.trains.length;
+      c[5].textContent = gerbong;
+      c[5].title = `${gerbong} gerbong · muat ${L.cap} penumpang per kereta`;
+      c[6].textContent = seats ? `${onboard}/${seats} (${Math.round((onboard / seats) * 100)}%)` : '–';
+    });
+  }
 
   // Urutan tabel: klik judul kolom untuk mengurutkan, klik lagi untuk membalik arah.
   // dir: 1 = naik ▲ (kecil → besar, A → Z), -1 = turun ▼. "No" = urutan bawaan.
@@ -1133,7 +1198,7 @@
   };
 
   function updateSortHeaders() {
-    document.querySelectorAll('#city-panel thead th').forEach((th) => {
+    document.querySelectorAll('#cp-cities thead th').forEach((th) => {
       const on = th.dataset.sort === citySort.key;
       th.classList.toggle('sorted', on);
       const label = th.dataset.label || (th.dataset.label = th.textContent);
@@ -1148,7 +1213,7 @@
     });
   }
 
-  document.querySelectorAll('#city-panel thead th').forEach((th) => th.addEventListener('click', () => {
+  document.querySelectorAll('#cp-cities thead th').forEach((th) => th.addEventListener('click', () => {
     const key = th.dataset.sort;
     if (citySort.key === key && key !== 'default') citySort.dir = -citySort.dir;
     else { citySort.key = key; citySort.dir = SORT_FIRST_DIR[key]; }
@@ -1201,7 +1266,7 @@
   function updateHud() {
     if (cityPanel.open && performance.now() - cityPanel.last > 400) {
       cityPanel.last = performance.now();
-      renderCityPanel();
+      if (cityPanel.mode === 'lines') renderLinePanel(); else renderCityPanel();
     }
     const key = [S.level, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.population, Math.round(S.satisfaction)].join('|');
     if (key !== lastHud) {
@@ -1555,8 +1620,7 @@
 
   TERRAIN = buildTerrain();
   renderTerrain();
-  $('city-panel').hidden = !cityPanel.open;
-  $('b-cities').classList.toggle('active', cityPanel.open);
+  applyPanelUi();
   newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, 1);
   const reached = Math.min(LAST_MAP, loadNum('map'));
   if (reached > 1) {

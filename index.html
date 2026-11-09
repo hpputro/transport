@@ -6,7 +6,7 @@
   <title>Lintas Kota</title>
   <meta name="description" content="Game strategi transportasi: hubungkan kota-kota di kepulauan dengan jalur kereta.">
   <!-- ?v=... = penanda versi supaya browser tidak memakai CSS/JS lama dari cache; ganti setiap kali file berubah -->
-  <link rel="stylesheet" href="style.css?v=8632ab9">
+  <link rel="stylesheet" href="style.css?v=16c51e2">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -22,6 +22,7 @@
     </div>
     <button id="b-next" class="primary small" hidden>Peta berikutnya →</button>
     <button id="b-cities" class="small" title="Tampilkan/sembunyikan daftar kota">☰ Kota</button>
+    <button id="b-lines" class="small" title="Tampilkan/sembunyikan daftar jalur">☰ Jalur</button>
     <div class="speed" role="group" aria-label="Kecepatan">
       <button data-speed="0" title="Jeda (Spasi)">❚❚</button>
       <button data-speed="0.25" title="Kecepatan 1: sangat lambat (¼×)">1</button>
@@ -61,11 +62,11 @@
   <!-- daftar kota: urut persentase tunggu/kapasitas, lalu level, lalu populasi -->
   <aside id="city-panel" hidden>
     <div class="cp-head">
-      <b>Daftar kota</b>
+      <b id="cp-title">Daftar kota</b>
       <span id="cp-count"></span>
       <button id="cp-close" class="small" title="Tutup">✕</button>
     </div>
-    <div class="cp-scroll">
+    <div class="cp-scroll" id="cp-cities">
     <table>
       <thead>
         <tr>
@@ -79,7 +80,25 @@
       <tbody id="cp-body"></tbody>
     </table>
     </div>
-    <p class="cp-note">Level: 0 Kampung (belum terhubung) · I Dusun · II Desa · III Distrik · IV Kota Kecil · V Kota Besar · VI Metropolitan · VII Megapolitan · VIII Kapital. Klik baris untuk menuju kota.</p>
+    <!-- daftar jalur -->
+    <div class="cp-scroll" id="cp-lines" hidden>
+    <table class="lines-table">
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Jalur</th>
+          <th title="Jumlah kota (stasiun) di jalur ini">Kota</th>
+          <th title="Panjang rel">Jarak</th>
+          <th title="Jumlah kereta">Kereta</th>
+          <th title="Gerbong per kereta">Gerbong</th>
+          <th title="Penumpang di semua kereta / total kapasitas">Okupansi</th>
+        </tr>
+      </thead>
+      <tbody id="ln-body"></tbody>
+    </table>
+    </div>
+    <p class="cp-note" id="cp-note-lines" hidden>Okupansi = penumpang di dalam semua kereta jalur itu dibanding total kapasitasnya, saat ini. Klik baris untuk memilih jalur.</p>
+    <p class="cp-note" id="cp-note-cities">Level: 0 Kampung (belum terhubung) · I Dusun · II Desa · III Distrik · IV Kota Kecil · V Kota Besar · VI Metropolitan · VII Megapolitan · VIII Kapital. Klik baris untuk menuju kota.</p>
   </aside>
 
   <div id="toasts"></div>
@@ -105,7 +124,7 @@
     </div>
   </div>
 
-  <script src="geo.js?v=8632ab9"></script>
-  <script src="game.js?v=8632ab9"></script>
+  <script src="geo.js?v=16c51e2"></script>
+  <script src="game.js?v=16c51e2"></script>
 </body>
 </html>
