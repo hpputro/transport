@@ -20,7 +20,8 @@
   const MAX_TRAINS = 4;
   const UPKEEP = 20;         // biaya perawatan per kereta per hari
   const START_MONEY = 1500;
-  const LAST_MAP = 6;        // peta 1..6: 15, 20, 25, 30, 35, 38 kota
+  const SPEEDS = [0.25, 0.5, 1, 2, 3]; // tombol keyboard 1..5; bawaan = 1× (tingkat ke-3)
+  const LAST_MAP = 6;       // peta 1..6: 15, 20, 25, 30, 35, 38 kota
   const SIZE_CAP = [0, 8, 12, 16];
   const SIZE_R = [0, 13, 16, 20];
   const SIZE_NAME = ['', 'Kota kecil', 'Kota sedang', 'Kota besar'];
@@ -747,7 +748,7 @@
   window.addEventListener('keydown', (e) => {
     if (blocked()) return;
     if (e.code === 'Space') { e.preventDefault(); setSpeed(S.paused ? S.speed : 0); }
-    else if (e.key === '1' || e.key === '2' || e.key === '3') setSpeed(+e.key);
+    else if (e.key >= '1' && e.key <= String(SPEEDS.length)) setSpeed(SPEEDS[+e.key - 1]);
     else if (e.key === 'Escape') { if (S.building) stopBuilding(); else selectLine(null); }
     else if (e.key === '+' || e.key === '=') zoomAt(view.area.x + view.area.w / 2, view.area.y + view.area.h / 2, view.zoom * 1.25);
     else if (e.key === '-') zoomAt(view.area.x + view.area.w / 2, view.area.y + view.area.h / 2, view.zoom / 1.25);
@@ -1168,7 +1169,9 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     if (!blocked() && !S.paused) {
-      for (let k = 0; k < S.speed; k++) update(dt);
+      // kecepatan 2× / 3× dipecah jadi beberapa langkah kecil; ¼× / ½× cukup satu langkah yang diperkecil
+      const steps = Math.ceil(S.speed);
+      for (let k = 0; k < steps; k++) update(dt * S.speed / steps);
     }
     draw(now / 1000);
     updateHud();

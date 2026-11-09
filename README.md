@@ -43,7 +43,7 @@ Sambungkan **semua kota** di peta dalam satu jaringan. Kota muncul bertahap samp
 | Geser peta | seret | seret |
 | Zoom | roda mouse, `+` / `-` | cubit |
 | Selesai membangun | klik area kosong, klik kanan, `Esc` | ketuk area kosong |
-| Jeda / kecepatan | `Spasi`, `1` `2` `3` | tombol di kanan atas |
+| Jeda / kecepatan | `Spasi`; `1`–`5` = ¼× ½× 1× 2× 3× (bawaan 1×) | tombol di kanan atas |
 
 ## Struktur
 
