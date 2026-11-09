@@ -1271,7 +1271,9 @@
   /** Isi tabel sesuai urutan yang dipilih; nilai yang sama diurutkan dengan urutan bawaan. */
   function renderCityPanel() {
     const cmp = SORT_CMP[citySort.key];
-    const rows = S.cities.map((c) => ({ c, ratio: fillRatio(c) }))
+    // ratio = untuk urutan (Kampung selalu di atas saat diurutkan turun, yang penumpangnya lebih banyak lebih dulu);
+    // fill = untuk warna baris (sama dengan aturan turunnya kepuasan)
+    const rows = S.cities.map((c) => ({ c, fill: fillRatio(c), ratio: c.size === 0 ? 1e6 + c.wait.length : c.wait.length / SIZE_CAP[c.size] }))
       .sort((a, b) => citySort.dir * cmp(a, b) || defaultCmp(a, b));
     $('cp-count').textContent = `${S.cities.length}/${S.target} kota`;
     const body = $('cp-body');
@@ -1285,11 +1287,11 @@
         body.appendChild(tr);
       }
     }
-    rows.forEach(({ c, ratio }, k) => {
+    rows.forEach(({ c, fill }, k) => {
       const tr = body.children[k];
       tr.dataset.id = c.id;
-      tr.className = ratio > 1 ? 'over' : ratio > 0.5 ? 'warn' : '';
-      tr.title = `${c.name} · ${SIZE_NAME[c.size]} · ${Math.round(ratio * 100)}% kapasitas`;
+      tr.className = fill > 1 ? 'over' : fill > 0.5 ? 'warn' : '';
+      tr.title = c.size === 0 ? `${c.name} · Kampung (belum terhubung)` : `${c.name} · ${SIZE_NAME[c.size]} · ${Math.round(fill * 100)}% kapasitas`;
       const cells = tr.children;
       cells[0].textContent = k + 1;
       cells[1].textContent = LEVEL_CODE[c.size];
