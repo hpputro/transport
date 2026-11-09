@@ -26,6 +26,7 @@
   const START_MONEY = 1500;
   const SPEEDS = [0.25, 0.5, 1, 2, 3]; // tombol keyboard 1..5; bawaan = 1× (tingkat ke-3)
   const MAX_ZOOM = 6;        // zoom maksimal relatif terhadap tampilan seluruh wilayah
+  const MIN_ZOOM = 0.75;     // sedikit di bawah 1 supaya skala bisa dipertahankan saat panel bawah membesar/mengecil
   const LAST_MAP = GEO.LEVEL_REGIONS.length; // peta 1 = Sumatra, tiap peta menambah satu wilayah
   const SIZE_CAP = [0, 8, 12, 16];
   const SIZE_R = [0, 13, 16, 20];
@@ -644,11 +645,16 @@
     return { x: (cx - view.ox) / view.scale, y: (cy - view.oy) / view.scale };
   }
 
+  /** Jarak di dunia yang setara dengan `px` piksel layar pada zoom saat ini. */
+  const screenPx = (px) => px / view.scale;
+
+  /** Kota terdekat dalam jangkauan sentuh: minimal 32 px layar untuk jari, 16 px untuk mouse. */
   function cityAt(p) {
+    const minR = screenPx(mouse.touch ? 32 : 16);
     let best = null, bd = Infinity;
     for (const c of S.cities) {
       const d = dist(c, p);
-      if (d < (SIZE_R[c.size] + 14) * UI && d < bd) { best = c; bd = d; }
+      if (d < Math.max((SIZE_R[c.size] + 14) * UI, minR) && d < bd) { best = c; bd = d; }
     }
     return best;
   }
@@ -662,7 +668,7 @@
         const ax = A.x + ox, ay = A.y + oy, bx = B.x + ox, by = B.y + oy;
         const dx = bx - ax, dy = by - ay;
         const t = clamp(((p.x - ax) * dx + (p.y - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
-        if (Math.hypot(p.x - (ax + dx * t), p.y - (ay + dy * t)) < 10 * UI) return L;
+        if (Math.hypot(p.x - (ax + dx * t), p.y - (ay + dy * t)) < Math.max(10 * UI, screenPx(mouse.touch ? 22 : 8))) return L;
       }
     }
     return null;
@@ -748,7 +754,7 @@
 
   function zoomAt(sx, sy, z) {
     const wp = toWorld(sx, sy);
-    view.zoom = clamp(z, 1, MAX_ZOOM);
+    view.zoom = clamp(z, MIN_ZOOM, MAX_ZOOM);
     view.scale = view.fit * view.zoom;
     const a = view.area;
     view.cx = wp.x - (sx - (a.x + a.w / 2)) / view.scale;
@@ -759,6 +765,7 @@
   function trackMouse(e) {
     const p = toWorld(e.clientX, e.clientY);
     mouse.x = p.x; mouse.y = p.y; mouse.cx = e.clientX; mouse.cy = e.clientY; mouse.inside = true;
+    mouse.touch = e.pointerType === 'touch' || e.pointerType === 'pen';
   }
 
   canvas.addEventListener('pointerdown', (e) => {
@@ -784,7 +791,8 @@
       zoomAt((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, pinch.zoom * d / pinch.d);
     } else if (drag) {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-      if (!drag.moved && Math.hypot(dx, dy) > 7) drag.moved = true;
+      // jari lebih goyang daripada mouse: butuh gerak lebih jauh sebelum dianggap menggeser peta
+      if (!drag.moved && Math.hypot(dx, dy) > (mouse.touch ? 12 : 7)) drag.moved = true;
       if (drag.moved) {
         view.cx = drag.cx - dx / view.scale;
         view.cy = drag.cy - dy / view.scale;
@@ -799,6 +807,8 @@
     if (pointers.size === 0) {
       if (drag && !drag.moved && !cancelled) onPointerDown(e);
       drag = null;
+      // layar sentuh tidak punya "kursor": tooltip kota hanya tampil sebentar setelah ketukan
+      if (mouse.touch) mouse.tipUntil = performance.now() + 2500;
     }
   }
   canvas.addEventListener('pointerup', (e) => endPointer(e, false));
@@ -986,7 +996,8 @@
     }
     // tooltip kota
     const tip = $('tooltip');
-    const c = mouse.inside && S.started ? cityAt(mouse) : null;
+    const tipOn = mouse.inside && S.started && !(mouse.touch && !(performance.now() < mouse.tipUntil));
+    const c = tipOn ? cityAt(mouse) : null;
     if (!c) { tip.hidden = true; return; }
     const cap = SIZE_CAP[c.size];
     const noRoute = c.wait.filter((p) => !isFinite(D(c.id, p.dest))).length;
@@ -1014,7 +1025,7 @@
   function applyView() {
     const a = view.area;
     const B = view.bounds, bw = B.x1 - B.x0, bh = B.y1 - B.y0;
-    view.zoom = clamp(view.zoom, 1, MAX_ZOOM);
+    view.zoom = clamp(view.zoom, MIN_ZOOM, MAX_ZOOM);
     view.scale = view.fit * view.zoom;
     // kamera dibatasi ke wilayah peta yang aktif
     const halfW = a.w / 2 / view.scale, halfH = a.h / 2 / view.scale;
@@ -1032,7 +1043,12 @@
     canvas.height = Math.round(window.innerHeight * view.dpr);
     const top = $('hud-top').offsetHeight, bottom = $('hud-bottom').offsetHeight;
     $('toasts').style.top = top + 10 + 'px'; // notifikasi tepat di bawah HUD atas
-    view.area ={ x: 0, y: top, w: window.innerWidth, h: Math.max(50, window.innerHeight - top - bottom) };
+    // Kalau ukuran jendela sama dan hanya tinggi HUD yang berubah (mis. panel jalur muncul/hilang),
+    // pertahankan skala & posisi peta di layar supaya kota tidak "melompat".
+    const keep = !view.needsInit && view.winW === window.innerWidth && view.winH === window.innerHeight;
+    const old = { scale: view.scale, ox: view.ox, oy: view.oy };
+    view.winW = window.innerWidth; view.winH = window.innerHeight;
+    view.area = { x: 0, y: top, w: window.innerWidth, h: Math.max(50, window.innerHeight - top - bottom) };
     const B = view.bounds, bw = B.x1 - B.x0, bh = B.y1 - B.y0;
     view.fit = Math.max(0.02, Math.min((view.area.w - 16) / bw, (view.area.h - 16) / bh));
     if (view.needsInit) {
@@ -1043,6 +1059,11 @@
       const n = S.cities.length || 1;
       view.cx = S.cities.reduce((s, c) => s + c.x, 0) / n;
       view.cy = S.cities.reduce((s, c) => s + c.y, 0) / n;
+    } else if (keep) {
+      const a = view.area;
+      view.zoom = old.scale / view.fit;
+      view.cx = (a.x + a.w / 2 - old.ox) / old.scale;
+      view.cy = (a.y + a.h / 2 - old.oy) / old.scale;
     }
     applyView();
   }
@@ -1283,5 +1304,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse };
 })();

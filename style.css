@@ -197,7 +197,34 @@ button.small { padding: 6px 12px; font-size: 13px; }
   .stat > span:last-child { font-size: 14px; }
   .bar { width: 70px; }
   .speed button { min-width: 32px; padding: 5px 6px; }
-  #hud-bottom { padding-left: 12px; padding-right: 12px; }
+  #hud-bottom { padding-left: 12px; padding-right: 12px; gap: 4px; }
   .chip { width: 34px; height: 34px; }
-  button { font-size: 12px; padding: 6px 9px; }
+  button { font-size: 12px; padding: 6px 9px; min-height: 32px; }
+  /* panel jalur: satu baris yang bisa digeser ke samping, supaya peta tidak tertutup */
+  #line-panel {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  #line-panel::-webkit-scrollbar { display: none; }
+  #line-panel > * { flex: 0 0 auto; white-space: nowrap; }
+  /* tombol didahulukan; nama jalur cukup ditunjukkan warna chip; info di ujung baris */
+  #lp-name { display: none; }
+  #lp-info { font-size: 12px; order: 10; }
+  /* tepi kanan memudar: tanda baris bisa digeser */
+  #line-panel {
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
+    mask-image: linear-gradient(to right, #000 88%, transparent);
+  }
+  /* teks bantuan maksimal 2 baris */
+  #hint {
+    font-size: 11.5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
