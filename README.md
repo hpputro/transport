@@ -95,7 +95,7 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   - rasio ≤ 1 → tidak turun;
   - rasio > 1 → turun `0,7 + 2 × (rasio − 1)` per detik, maksimal 3 per detik per kota (dijumlahkan untuk semua kota);
   - contoh: Dusun 9/8 → 0,95/detik; Dusun 12/8 → 1,7/detik; Kapital 1034/1024 → 0,72/detik;
-  - Kampung dihitung dengan kapasitas 1024.
+  - Kampung dihitung dengan kapasitas 1024. Aturan "penuh" yang sama dipakai untuk lingkaran merah di peta, baris merah di daftar kota, tooltip "Terlalu padat", dan bobot tujuan penumpang.
 
   Setiap penumpang yang sampai di tujuan menambah kepuasan +0,6 (maksimal 100). Kalau kepuasan habis, permainan selesai.
 - **Daftar kota** (tombol "☰ Kota" di kanan atas): tabel `No | Lv | Kota | Tunggu/Kap | Pop.`, diurutkan dari persentase tunggu/kapasitas terbesar, lalu level tertinggi, lalu populasi terbesar. Level ditulis dengan kode pada tabel di atas (0 Kampung, I Dusun … VIII Kapital). Klik judul kolom untuk mengurutkan berdasarkan kolom itu (klik lagi untuk membalik arah, ▲ naik / ▼ turun); klik "No" untuk kembali ke urutan bawaan. Baris kuning = lebih dari 50% kapasitas, merah = melebihi kapasitas. Klik baris untuk menggeser peta ke kota itu. Di layar lebar panel ini terbuka di samping peta; di HP panel tertutup sampai tombolnya diketuk.

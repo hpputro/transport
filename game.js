@@ -324,25 +324,28 @@
    * Daya tarik kota sebagai tujuan berdasarkan kepadatannya: 1 selama penumpang menunggu ≤ kapasitas,
    * lalu turun dengan (kapasitas / menunggu)² saat kelebihan (1,5× kapasitas → 44%, 2× → 25%).
    */
+  /**
+   * Kapasitas yang dipakai untuk menilai "penuh": kapasitas level, kecuali Kampung (kapasitas 0)
+   * yang dianggap berkapasitas maksimal (1024). Dipakai bersama oleh kepuasan, tampilan, dan tujuan penumpang.
+   */
+  const effectiveCap = (c) => (c.size === 0 ? SIZE_CAP[MAX_LEVEL] : SIZE_CAP[c.size]);
+
   function crowdFactor(c) {
-    const cap = SIZE_CAP[c.size], n = c.wait.length;
-    return n <= cap ? 1 : (cap / n) ** 2; // Kampung (kapasitas 0) yang sudah ada penumpangnya: 0
+    const cap = effectiveCap(c), n = c.wait.length;
+    return n <= cap ? 1 : (cap / n) ** 2;
   }
 
-  /** Persentase penumpang menunggu terhadap kapasitas; Kampung (kapasitas 0) dengan penumpang dianggap paling penuh. */
+  /** Rasio penumpang menunggu terhadap kapasitas (>1 = penuh dan menurunkan kepuasan). */
   function fillRatio(c) {
-    const cap = SIZE_CAP[c.size], n = c.wait.length;
-    return cap ? n / cap : n ? 1000 + n : 0;
+    return c.wait.length / effectiveCap(c);
   }
 
   /**
    * Penurunan kepuasan per detik oleh satu kota, berdasarkan rasio menunggu ÷ kapasitas:
    *   rasio ≤ 1 → 0;  rasio > 1 → 0,7 + 2 × (rasio − 1), maksimal 3.
-   * Kampung (kapasitas 0) dihitung dengan kapasitas maksimal (1024).
    */
   function satisfactionDrain(c) {
-    const cap = c.size === 0 ? SIZE_CAP[MAX_LEVEL] : SIZE_CAP[c.size];
-    const ratio = c.wait.length / cap;
+    const ratio = fillRatio(c);
     return ratio > 1 ? Math.min(DRAIN_MAX, DRAIN_BASE + DRAIN_PER_RATIO * (ratio - 1)) : 0;
   }
 
@@ -1549,7 +1552,7 @@
     // indikator kepadatan
     const fill = fillRatio(c);
     if (fill > 0.5) {
-      const over = c.wait.length > cap;
+      const over = fill > 1; // sama dengan syarat turunnya kepuasan
       const pulse = over ? 0.6 + 0.4 * Math.sin(now * 8) : 1;
       ctx.strokeStyle = over ? `rgba(214,64,69,${pulse})` : '#f0a202';
       ctx.lineWidth = 4;
