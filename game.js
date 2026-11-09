@@ -298,10 +298,11 @@
     }
   }
 
-  function trimLine(L) {
+  /** Bongkar stasiun di ujung awal (fromHead = true) atau ujung akhir jalur. */
+  function trimLine(L, fromHead) {
     const st = L.stations, n = st.length;
-    if (n <= 2) { deleteLine(L); return; }
-    const fromHead = S.building && S.buildEnd === 'head';
+    if (n <= 2) return; // jalur 2 stasiun dihapus lewat tombol "Hapus jalur"
+    const removed = S.cities[fromHead ? st[0] : st[n - 1]].name;
     const refund = Math.round((fromHead ? L.segCosts[0] : L.segCosts[n - 2]) * 0.5);
     S.money += refund;
     if (fromHead) {
@@ -312,7 +313,7 @@
     }
     recomputeNetwork();
     fixTrains(L);
-    toast(`Ruas dibongkar, kembali $${refund}`);
+    toast(`Stasiun ${removed} dilepas dari jalur ${L.name}, kembali $${refund}`);
   }
 
   function deleteLine(L) {
@@ -666,7 +667,8 @@
   $('b-extend').addEventListener('click', () => { if (S.selected) { S.building = true; S.buildEnd = 'tail'; refreshUi(); } });
   $('b-train').addEventListener('click', () => { if (S.selected) { addTrain(S.selected, false); refreshUi(); } });
   $('b-cap').addEventListener('click', () => { if (S.selected) { upgradeCap(S.selected); refreshUi(); } });
-  $('b-trim').addEventListener('click', () => { if (S.selected) { trimLine(S.selected); refreshUi(); } });
+  $('b-trim-head').addEventListener('click', () => { if (S.selected) { trimLine(S.selected, true); refreshUi(); } });
+  $('b-trim-tail').addEventListener('click', () => { if (S.selected) { trimLine(S.selected, false); refreshUi(); } });
   let delArmed = null;
   $('b-del').addEventListener('click', () => {
     const L = S.selected;
@@ -760,6 +762,16 @@
     $('b-train').disabled = L.trains.length >= MAX_TRAINS || S.money < TRAIN_COST;
     $('b-cap').textContent = L.cap >= MAX_CAP ? 'Gerbong maks' : `+ Gerbong ($${CAP_COST})`;
     $('b-cap').disabled = L.cap >= MAX_CAP || S.money < CAP_COST;
+    const st = L.stations, n = st.length, canTrim = n > 2;
+    const trimBtn = (id, label, city, cost) => {
+      const b = $(id);
+      b.textContent = `${label}: ${S.cities[city].name}` + (canTrim ? ` (+$${Math.round(cost * 0.5)})` : '');
+      b.disabled = !canTrim;
+      b.title = canTrim ? `Lepas stasiun ${S.cities[city].name} dan bongkar relnya (uang kembali 50%)`
+        : 'Jalur minimal 2 stasiun. Gunakan "Hapus jalur" untuk menghapusnya.';
+    };
+    trimBtn('b-trim-head', 'Potong awal', st[0], L.segCosts[0]);
+    trimBtn('b-trim-tail', 'Potong akhir', st[n - 1], L.segCosts[n - 2]);
   }
 
   function updateHint() {
