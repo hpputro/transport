@@ -238,7 +238,7 @@
    *  - tumbuh: di tiap pulau yang sudah punya kota, kota tersisa yang paling dekat dengan kota-kota di pulau itu;
    *  - menyeberang: kota pertama di pulau tetangga yang belum punya kota, menurut aturan GEO.SPREAD.
    * Salah satu calon dipilih acak, jadi pulau-pulau boleh berselang-seling.
-   * Tiga kota pertama selalu tumbuh di pulau yang baru ditambahkan di peta ini.
+   * Kota-kota awal (maks. 3) selalu tumbuh di pulau yang baru ditambahkan di peta ini.
    */
   function nextCityDef() {
     const left = S.remaining;
@@ -261,6 +261,7 @@
     const regions = levelRegions(S.level);
     for (const rule of GEO.SPREAD) {
       if (!started.has(rule.from) || started.has(rule.to) || !regions.includes(rule.to)) continue;
+      if (rule.requires && !rule.requires.some(has)) continue; // kota syarat di pulau asal belum muncul
       const names = rule.ifPresent && has(rule.ifPresent) ? rule.alt : rule.cities;
       const cand = left.filter((d) => names.includes(d.name));
       if (cand.length) options.push(pick(cand));
@@ -537,7 +538,9 @@
     };
     S.remaining = levelCities(level).slice(); // kota peta ini yang belum muncul
     view.bounds = levelBounds(level);
-    for (let i = 0; i < 3; i++) spawnCity();
+    // kota awal: maks. 3, semuanya di pulau baru (Peta 7 / Maluku hanya punya 2)
+    const startCount = Math.min(3, S.remaining.filter((d) => d.region === GEO.LEVEL_REGIONS[level - 1]).length);
+    for (let i = 0; i < startCount; i++) spawnCity();
     renderChips();
     updatePanel();
     updateHint();

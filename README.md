@@ -23,23 +23,23 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
 | 7 | + Maluku | 38 (semua) | $7500 |
 
 **Urutan munculnya kota**
-- Setiap peta dimulai di wilayah yang baru ditambahkan: kota pertama acak, lalu dua kota terdekat di pulau yang sama.
+- Setiap peta dimulai di wilayah yang baru ditambahkan: kota pertama acak, lalu kota terdekat di pulau yang sama, sampai 3 kota. Peta 7 dimulai dengan 2 kota karena Maluku hanya punya 2 ibu kota.
 - Setelah itu, setiap kota baru dipilih acak dari dua kemungkinan, sehingga pulau-pulau bisa berselang-seling:
   - **tumbuh**: kota tersisa yang paling dekat dengan kota yang sudah ada di pulau itu;
   - **menyeberang** ke pulau tetangga yang belum punya kota, lewat kota pertama berikut (aturan lengkap di `GEO.SPREAD` di `geo.js`):
 
-| Dari → ke | Kota pertama | Pengecualian |
+| Dari → ke | Kota pertama | Syarat / pengecualian |
 |---|---|---|
 | Jawa → Sumatra | Bandar Lampung | Palembang, kalau Serang sudah ada |
-| Sulawesi → Jawa | Surabaya | Semarang, kalau Makassar sudah ada |
-| Papua → Sulawesi | Manado / Kendari | Gorontalo, kalau Sorong sudah ada |
-| Sulawesi → Papua | Sorong | Manokwari, kalau Manado sudah ada |
-| Kalimantan → Sulawesi | Mamuju / Palu / Makassar | |
+| Sulawesi → Jawa | Surabaya | harus sudah ada Makassar |
+| Papua → Sulawesi | Manado | harus sudah ada Sorong |
+| Sulawesi → Papua | Sorong | harus sudah ada Manado |
+| Kalimantan → Sulawesi | Mamuju / Palu / Makassar | harus sudah ada Samarinda |
 | Nusa Tenggara → Jawa | Surabaya / Semarang | |
-| Jawa → Kalimantan | Banjarbaru / Palangka Raya | |
-| Jawa → Nusa Tenggara | Denpasar | |
+| Jawa → Kalimantan | Banjarbaru / Palangka Raya | harus sudah ada Surabaya |
 | Maluku → Sulawesi | Manado / Kendari / Gorontalo | |
 | Maluku → Papua | Sorong / Manokwari | |
+| Sulawesi → Nusa Tenggara | Mataram (Lombok) / Kupang | harus sudah ada Makassar atau Kendari |
 
 - **Skor** tiap peta adalah **populasi negara**, yaitu jumlah populasi semua kota (lihat "Status kota" di bawah). Rekornya disimpan per peta.
 - **Setelah menang** kamu bisa memilih:

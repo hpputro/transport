@@ -22,20 +22,21 @@ window.LINTAS_GEO = (() => {
    * Cara kota menyebar ke pulau lain. Setiap peta dimulai di pulau yang baru ditambahkan;
    * dari pulau yang sudah punya kota (`from`), kota bisa muncul pertama kali di pulau tetangga (`to`).
    * cities   = calon kota pertama di pulau tujuan (dipilih acak)
+   * requires = penyeberangan baru boleh terjadi kalau salah satu kota ini (di pulau asal) sudah muncul
    * ifPresent/alt = kalau kota `ifPresent` (di pulau asal) sudah muncul, kota pertamanya `alt`
    * Setelah kota pertama, kota-kota di pulau itu muncul dari yang terdekat dengan kota yang sudah ada.
    */
   const SPREAD = [
     { from: 'jawa', to: 'sumatra', cities: ['Bandar Lampung'], ifPresent: 'Serang', alt: ['Palembang'] },
-    { from: 'sulawesi', to: 'jawa', cities: ['Surabaya'], ifPresent: 'Makassar', alt: ['Semarang'] },
-    { from: 'papua', to: 'sulawesi', cities: ['Manado', 'Kendari'], ifPresent: 'Sorong', alt: ['Gorontalo'] },
-    { from: 'kalimantan', to: 'sulawesi', cities: ['Mamuju', 'Palu', 'Makassar'] },
-    { from: 'sulawesi', to: 'papua', cities: ['Sorong'], ifPresent: 'Manado', alt: ['Manokwari'] },
+    { from: 'sulawesi', to: 'jawa', cities: ['Surabaya'], requires: ['Makassar'] },
+    { from: 'papua', to: 'sulawesi', cities: ['Manado'], requires: ['Sorong'] },
+    { from: 'sulawesi', to: 'papua', cities: ['Sorong'], requires: ['Manado'] },
+    { from: 'kalimantan', to: 'sulawesi', cities: ['Mamuju', 'Palu', 'Makassar'], requires: ['Samarinda'] },
     { from: 'nusatenggara', to: 'jawa', cities: ['Surabaya', 'Semarang'] },
-    { from: 'jawa', to: 'kalimantan', cities: ['Banjarbaru', 'Palangka Raya'] },
-    { from: 'jawa', to: 'nusatenggara', cities: ['Denpasar'] }, // dibutuhkan di Peta 7 (tidak disebut di aturan awal)
+    { from: 'jawa', to: 'kalimantan', cities: ['Banjarbaru', 'Palangka Raya'], requires: ['Surabaya'] },
     { from: 'maluku', to: 'sulawesi', cities: ['Manado', 'Kendari', 'Gorontalo'] },
     { from: 'maluku', to: 'papua', cities: ['Sorong', 'Manokwari'] },
+    { from: 'sulawesi', to: 'nusatenggara', cities: ['Mataram', 'Kupang'], requires: ['Makassar', 'Kendari'] },
   ];
 
   // Ibu kota 38 provinsi: [nama, bujur, lintang, wilayah, posisi label (opsional: 'top' / 'left'; bawaan di bawah kota)]
