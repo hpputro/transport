@@ -233,10 +233,48 @@
     return { x0: Math.max(0, x0), y0: Math.max(0, y0), x1: Math.min(W, x1), y1: Math.min(H, y1) };
   }
 
-  /** Munculkan kota berikutnya dari antrean kota peta ini. */
+  /**
+   * Pilih kota berikutnya yang muncul. Calon-calonnya:
+   *  - tumbuh: di tiap pulau yang sudah punya kota, kota tersisa yang paling dekat dengan kota-kota di pulau itu;
+   *  - menyeberang: kota pertama di pulau tetangga yang belum punya kota, menurut aturan GEO.SPREAD.
+   * Salah satu calon dipilih acak, jadi pulau-pulau boleh berselang-seling.
+   * Tiga kota pertama selalu tumbuh di pulau yang baru ditambahkan di peta ini.
+   */
+  function nextCityDef() {
+    const left = S.remaining;
+    if (!left.length) return null;
+    const pick = (arr) => arr[Math.floor(S.rng() * arr.length)];
+    const has = (name) => S.cities.some((c) => c.name === name);
+    const started = new Set(S.cities.map((c) => c.region));
+    const growIn = (region) => {
+      const cand = left.filter((d) => d.region === region);
+      const mine = S.cities.filter((c) => c.region === region);
+      if (!cand.length) return null;
+      if (!mine.length) return pick(cand);
+      const near = (d) => Math.min(...mine.map((c) => dist(c, d)));
+      return cand.reduce((a, b) => (near(b) < near(a) ? b : a));
+    };
+    const newest = GEO.LEVEL_REGIONS[S.level - 1];
+    if (S.cities.length < 3 && left.some((d) => d.region === newest)) return growIn(newest);
+    const options = [];
+    for (const region of started) { const d = growIn(region); if (d) options.push(d); }
+    const regions = levelRegions(S.level);
+    for (const rule of GEO.SPREAD) {
+      if (!started.has(rule.from) || started.has(rule.to) || !regions.includes(rule.to)) continue;
+      const names = rule.ifPresent && has(rule.ifPresent) ? rule.alt : rule.cities;
+      const cand = left.filter((d) => names.includes(d.name));
+      if (cand.length) options.push(pick(cand));
+    }
+    // cadangan: kalau tidak ada calon (seharusnya tidak terjadi), ambil kota tersisa yang terdekat
+    if (!options.length) return left.reduce((a, b) => (Math.min(...S.cities.map((c) => dist(c, b))) < Math.min(...S.cities.map((c) => dist(c, a))) ? b : a));
+    return pick(options);
+  }
+
+  /** Munculkan kota berikutnya. */
   function spawnCity() {
-    const def = S.pool.shift();
+    const def = nextCityDef();
     if (!def) return null;
+    S.remaining = S.remaining.filter((d) => d !== def);
     const city = {
       id: S.cities.length, name: def.name, region: def.region, label: def.label, x: def.x, y: def.y,
       size: 1, visits: 0, pop: 0, wait: [], acc: S.rng() * 0.6, born: S.t, overT: 0,
@@ -244,18 +282,6 @@
     S.cities.push(city);
     recomputeNetwork();
     return city;
-  }
-
-  /** Urutan acak kota peta ini; 3 kota pertama saling berdekatan supaya awal permainan tidak terlalu berat. */
-  function makePool(level, rng) {
-    const pool = levelCities(level).slice();
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    const first = pool[0];
-    const near = pool.slice(1).sort((a, b) => dist(a, first) - dist(b, first)).slice(0, 2);
-    return [first, ...near, ...pool.filter((c) => c !== first && !near.includes(c))];
   }
 
   /**
@@ -509,7 +535,7 @@
       selected: null, building: false, buildEnd: 'tail', unlocked: 3,
       particles: [],
     };
-    S.pool = makePool(level, S.rng);
+    S.remaining = levelCities(level).slice(); // kota peta ini yang belum muncul
     view.bounds = levelBounds(level);
     for (let i = 0; i < 3; i++) spawnCity();
     renderChips();
@@ -1338,5 +1364,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity };
 })();

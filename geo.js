@@ -18,6 +18,26 @@ window.LINTAS_GEO = (() => {
   // Peta 1 = Sumatra, tiap peta berikutnya menambah satu wilayah.
   const LEVEL_REGIONS = ['sumatra', 'jawa', 'sulawesi', 'papua', 'kalimantan', 'nusatenggara', 'maluku'];
 
+  /*
+   * Cara kota menyebar ke pulau lain. Setiap peta dimulai di pulau yang baru ditambahkan;
+   * dari pulau yang sudah punya kota (`from`), kota bisa muncul pertama kali di pulau tetangga (`to`).
+   * cities   = calon kota pertama di pulau tujuan (dipilih acak)
+   * ifPresent/alt = kalau kota `ifPresent` (di pulau asal) sudah muncul, kota pertamanya `alt`
+   * Setelah kota pertama, kota-kota di pulau itu muncul dari yang terdekat dengan kota yang sudah ada.
+   */
+  const SPREAD = [
+    { from: 'jawa', to: 'sumatra', cities: ['Bandar Lampung'], ifPresent: 'Serang', alt: ['Palembang'] },
+    { from: 'sulawesi', to: 'jawa', cities: ['Surabaya'], ifPresent: 'Makassar', alt: ['Semarang'] },
+    { from: 'papua', to: 'sulawesi', cities: ['Manado', 'Kendari'], ifPresent: 'Sorong', alt: ['Gorontalo'] },
+    { from: 'kalimantan', to: 'sulawesi', cities: ['Mamuju', 'Palu', 'Makassar'] },
+    { from: 'sulawesi', to: 'papua', cities: ['Sorong'], ifPresent: 'Manado', alt: ['Manokwari'] },
+    { from: 'nusatenggara', to: 'jawa', cities: ['Surabaya', 'Semarang'] },
+    { from: 'jawa', to: 'kalimantan', cities: ['Banjarbaru', 'Palangka Raya'] },
+    { from: 'jawa', to: 'nusatenggara', cities: ['Denpasar'] }, // dibutuhkan di Peta 7 (tidak disebut di aturan awal)
+    { from: 'maluku', to: 'sulawesi', cities: ['Manado', 'Kendari', 'Gorontalo'] },
+    { from: 'maluku', to: 'papua', cities: ['Sorong', 'Manokwari'] },
+  ];
+
   // Ibu kota 38 provinsi: [nama, bujur, lintang, wilayah, posisi label (opsional: 'top' / 'left'; bawaan di bawah kota)]
   const CITIES = [
     ['Banda Aceh', 95.32, 5.55, 'sumatra'],
@@ -150,5 +170,5 @@ window.LINTAS_GEO = (() => {
     [0.15, [[133.5, -1.1], [134.0, -1.2]]], // Arfak
   ];
 
-  return { REGIONS, LEVEL_REGIONS, CITIES, LAND, FOREIGN, RIDGES };
+  return { REGIONS, LEVEL_REGIONS, SPREAD, CITIES, LAND, FOREIGN, RIDGES };
 })();

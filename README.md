@@ -22,6 +22,25 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
 | 6 | + Bali & Nusa Tenggara | 36 | $6500 |
 | 7 | + Maluku | 38 (semua) | $7500 |
 
+**Urutan munculnya kota**
+- Setiap peta dimulai di wilayah yang baru ditambahkan: kota pertama acak, lalu dua kota terdekat di pulau yang sama.
+- Setelah itu, setiap kota baru dipilih acak dari dua kemungkinan, sehingga pulau-pulau bisa berselang-seling:
+  - **tumbuh**: kota tersisa yang paling dekat dengan kota yang sudah ada di pulau itu;
+  - **menyeberang** ke pulau tetangga yang belum punya kota, lewat kota pertama berikut (aturan lengkap di `GEO.SPREAD` di `geo.js`):
+
+| Dari → ke | Kota pertama | Pengecualian |
+|---|---|---|
+| Jawa → Sumatra | Bandar Lampung | Palembang, kalau Serang sudah ada |
+| Sulawesi → Jawa | Surabaya | Semarang, kalau Makassar sudah ada |
+| Papua → Sulawesi | Manado / Kendari | Gorontalo, kalau Sorong sudah ada |
+| Sulawesi → Papua | Sorong | Manokwari, kalau Manado sudah ada |
+| Kalimantan → Sulawesi | Mamuju / Palu / Makassar | |
+| Nusa Tenggara → Jawa | Surabaya / Semarang | |
+| Jawa → Kalimantan | Banjarbaru / Palangka Raya | |
+| Jawa → Nusa Tenggara | Denpasar | |
+| Maluku → Sulawesi | Manado / Kendari / Gorontalo | |
+| Maluku → Papua | Sorong / Manokwari | |
+
 - **Skor** tiap peta adalah **populasi negara**, yaitu jumlah populasi semua kota (lihat "Status kota" di bawah). Rekornya disimpan per peta.
 - **Setelah menang** kamu bisa memilih:
   - lanjut ke peta berikutnya, atau
@@ -85,4 +104,4 @@ Kecepatan 1–5 setara ¼×, ½×, 1×, 2×, 3× waktu normal. Permainan dimulai
 - `geo.js`: data geografi: garis pantai yang disederhanakan, pegunungan utama, koordinat 38 ibu kota provinsi, dan urutan wilayah tiap peta
 - `game.js`: seluruh logika permainan (peta medan dari data geografi, rute penumpang dengan BFS, simulasi kereta, dan rendering canvas)
 
-Garis pantai digambar kasar dari titik-titik koordinat: cukup untuk mengenali bentuk pulau dan menghitung biaya rel, bukan peta yang akurat. Urutan munculnya kota dalam satu peta diacak setiap permainan.
+Garis pantai digambar kasar dari titik-titik koordinat: cukup untuk mengenali bentuk pulau dan menghitung biaya rel, bukan peta yang akurat. Urutan munculnya kota diacak setiap permainan, mengikuti aturan di atas.
