@@ -36,6 +36,7 @@
   // total kunjungan untuk naik dari level i ke i+1 (selisih antarlevel = 5 × kapasitas level itu)
   const GROW_AT = [0, 40, 120, 280, 600, 1240, 2520, 5080];
   const NUMBER_FROM = 3;     // mulai Distrik, penumpang menunggu ditampilkan sebagai angka di dalam lingkaran
+  const SAME_LINE_BONUS = 2; // kota tujuan yang satu jalur dengan kota asal 2× lebih sering dipilih
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
@@ -270,8 +271,16 @@
     const others = S.cities.filter((c) => c !== city);
     if (!others.length) return;
     let tot = 0;
-    // bobot tujuan = ukuran kota × faktor kepadatan ÷ (1 + jarak/500)
-    const w = others.map((c) => { const v = (c.size * crowdFactor(c)) / (1 + dist(c, city) / 500); tot += v; return v; });
+    // kota yang berada dalam satu jalur dengan kota asal (bisa dicapai tanpa pindah jalur)
+    const sameLine = new Set();
+    for (const L of S.lines) if (L.stations.includes(city.id)) for (const id of L.stations) sameLine.add(id);
+    // bobot tujuan = ukuran kota × faktor kepadatan × bonus satu jalur ÷ (1 + jarak/500)
+    const w = others.map((c) => {
+      const bonus = sameLine.has(c.id) ? SAME_LINE_BONUS : 1;
+      const v = (c.size * crowdFactor(c) * bonus) / (1 + dist(c, city) / 500);
+      tot += v;
+      return v;
+    });
     let r = S.rng() * tot, k = 0;
     while (k < w.length - 1 && r > w[k]) { r -= w[k]; k++; }
     city.wait.push({ dest: others[k].id, hops: 0 });
