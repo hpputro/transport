@@ -36,7 +36,7 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
 - **Perpanjang jalur**: pilih jalurnya, lalu klik salah satu ujungnya. Kamu bisa memperpanjang dari ujung awal maupun ujung akhir.
 - **Kereta**: jalur baru otomatis mendapat 1 kereta gratis. Tambah kereta (maks. 4 per jalur) atau gerbong untuk menambah kapasitas.
   - Kereta baru selalu muncul di **depo**, yaitu stasiun tempat jalur itu pertama kali ditarik. Nama depo tertera di panel jalur.
-  - Kalau depo ada di tengah jalur (karena jalur diperpanjang dari ujung awal), kereta baru berangkat bergantian ke dua arah.
+  - Kereta baru selalu berangkat ke arah **stasiun kedua**, yaitu stasiun yang ditarik tepat setelah depo, juga saat depo berada di tengah jalur karena jalur diperpanjang dari ujung awal. Kalau stasiun kedua sudah dilepas, kereta berangkat ke arah yang tersisa.
   - Kalau stasiun depo dilepas dengan "Potong awal/akhir", depo pindah ke stasiun ujung yang baru.
 - **Penumpang** muncul di tiap kota dengan tujuan kota lain. Mereka otomatis mencari rute terpendek, termasuk transit antar-jalur.
   - Titik gelap: penumpang yang sudah punya rute.

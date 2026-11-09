@@ -332,9 +332,11 @@
     const n = L.stations.length;
     // kereta muncul di depo: stasiun tempat jalur ini pertama kali ditarik
     if (L.origin == null || !L.stations.includes(L.origin)) L.origin = L.stations[0];
-    const i = L.stations.indexOf(L.origin);
-    // depo di ujung → berangkat ke arah satu-satunya; depo di tengah (jalur diperpanjang dari awal) → arah bergantian
-    const dir = i === 0 ? 1 : i === n - 1 ? -1 : (L.trains.length % 2 ? -1 : 1);
+    // stasiun kedua = stasiun yang ditarik tepat setelah depo (dicatat saat kereta pertama dibuat)
+    if (L.second == null) L.second = L.stations[1];
+    const i = L.stations.indexOf(L.origin), j = L.stations.indexOf(L.second);
+    // berangkat ke arah stasiun kedua; kalau stasiun itu sudah dilepas, ke satu-satunya arah yang tersisa
+    const dir = j >= 0 && j !== i ? Math.sign(j - i) : i === n - 1 ? -1 : 1;
     const tr = { line: L, i, dir, prog: 0, state: 'dwell', dwellT: 0.6, pax: [] };
     L.trains.push(tr);
     S.trains.push(tr);
