@@ -1174,11 +1174,12 @@
       c[1].firstChild.style.background = L.color;
       c[1].lastChild.textContent = L.name;
       c[2].textContent = L.stations.length;
-      c[3].textContent = `${km.toLocaleString('id-ID')} km`;
+      c[3].textContent = km.toLocaleString('id-ID'); // km
       c[4].textContent = L.trains.length;
       c[5].textContent = gerbong;
       c[5].title = `${gerbong} gerbong · muat ${L.cap} penumpang per kereta`;
-      c[6].textContent = seats ? `${onboard}/${seats} (${Math.round((onboard / seats) * 100)}%)` : '–';
+      c[6].textContent = seats ? `${Math.round((onboard / seats) * 100)}%` : '–';
+      c[6].title = seats ? `${onboard} penumpang dari ${seats} kursi` : '';
     });
   }
 
