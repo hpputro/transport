@@ -6,7 +6,7 @@
   <title>Lintas Kota</title>
   <meta name="description" content="Game strategi transportasi: hubungkan kota-kota di kepulauan dengan jalur kereta.">
   <!-- ?v=... = penanda versi supaya browser tidak memakai CSS/JS lama dari cache; ganti setiap kali file berubah -->
-  <link rel="stylesheet" href="style.css?v=5053ebb">
+  <link rel="stylesheet" href="style.css?v=1b0e5a0">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -85,19 +85,19 @@
     <table class="lines-table">
       <thead>
         <tr>
-          <th>No</th>
-          <th>Jalur</th>
-          <th title="Jumlah kota (stasiun) di jalur ini">Kota</th>
-          <th title="Panjang rel (km)">Jarak</th>
-          <th title="Jumlah kereta">Kereta</th>
-          <th title="Gerbong per kereta">Gerbong</th>
-          <th title="Penumpang di semua kereta / total kapasitas">Okupansi</th>
+          <th data-sort="default" title="Urutan bawaan: urutan warna jalur">No</th>
+          <th data-sort="name" title="Nama jalur">Jalur</th>
+          <th data-sort="stations" title="Jumlah kota (stasiun) di jalur ini">Kota</th>
+          <th data-sort="km" title="Panjang rel (km)">Jarak</th>
+          <th data-sort="trains" title="Jumlah kereta">Kereta</th>
+          <th data-sort="cars" title="Gerbong per kereta">Gerbong</th>
+          <th data-sort="occ" title="Penumpang di semua kereta / total kapasitas">Okupansi</th>
         </tr>
       </thead>
       <tbody id="ln-body"></tbody>
     </table>
     </div>
-    <p class="cp-note" id="cp-note-lines" hidden>Okupansi = penumpang di dalam semua kereta jalur itu dibanding total kapasitasnya, saat ini. Klik baris untuk memilih jalur.</p>
+    <p class="cp-note" id="cp-note-lines" hidden>Okupansi = penumpang di dalam semua kereta jalur itu dibanding total kapasitasnya, saat ini. Klik judul kolom untuk mengurutkan; klik baris untuk memilih jalur.</p>
     <p class="cp-note" id="cp-note-cities">Level: 0 Kampung (belum terhubung) · I Dusun · II Desa · III Distrik · IV Kota Kecil · V Kota Besar · VI Metropolitan · VII Megapolitan · VIII Kapital. Klik baris untuk menuju kota.</p>
   </aside>
 
@@ -124,7 +124,7 @@
     </div>
   </div>
 
-  <script src="geo.js?v=5053ebb"></script>
-  <script src="game.js?v=5053ebb"></script>
+  <script src="geo.js?v=1b0e5a0"></script>
+  <script src="game.js?v=1b0e5a0"></script>
 </body>
 </html>

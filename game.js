@@ -1160,26 +1160,35 @@
         body.appendChild(tr);
       }
     }
-    lines.forEach((L, k) => {
+    const rows = lines.map((L) => {
+      let len = 0;
+      for (let s = 0; s + 1 < L.stations.length; s++) len += dist(S.cities[L.stations[s]], S.cities[L.stations[s + 1]]);
+      const onboard = L.trains.reduce((a, t) => a + t.pax.length, 0), seats = L.trains.length * L.cap;
+      return {
+        L, onboard, seats,
+        stations: L.stations.length,
+        km: Math.round((len / PX_PER_DEG) * 111), // 1° ≈ 111 km
+        trains: L.trains.length,
+        cars: 1 + (L.cap - BASE_CAP) / CAP_STEP,  // gerbong per kereta: 1 bawaan + yang dibeli
+        occ: seats ? onboard / seats : -1,
+      };
+    }).sort((a, b) => lineSort.dir * LINE_CMP[lineSort.key](a, b) || a.L.id - b.L.id);
+    rows.forEach((r, k) => {
+      const { L } = r;
       const tr = body.children[k];
       tr.dataset.id = L.id;
       tr.className = S.selected === L ? 'sel' : '';
-      let len = 0;
-      for (let s = 0; s + 1 < L.stations.length; s++) len += dist(S.cities[L.stations[s]], S.cities[L.stations[s + 1]]);
-      const km = Math.round((len / PX_PER_DEG) * 111); // 1° ≈ 111 km
-      const onboard = L.trains.reduce((a, t) => a + t.pax.length, 0), seats = L.trains.length * L.cap;
-      const gerbong = 1 + (L.cap - BASE_CAP) / CAP_STEP;
       const c = tr.children;
       c[0].textContent = k + 1;
       c[1].firstChild.style.background = L.color;
       c[1].lastChild.textContent = L.name;
-      c[2].textContent = L.stations.length;
-      c[3].textContent = km.toLocaleString('id-ID'); // km
-      c[4].textContent = L.trains.length;
-      c[5].textContent = gerbong;
-      c[5].title = `${gerbong} gerbong · muat ${L.cap} penumpang per kereta`;
-      c[6].textContent = seats ? `${Math.round((onboard / seats) * 100)}%` : '–';
-      c[6].title = seats ? `${onboard} penumpang dari ${seats} kursi` : '';
+      c[2].textContent = r.stations;
+      c[3].textContent = r.km.toLocaleString('id-ID'); // km
+      c[4].textContent = r.trains;
+      c[5].textContent = r.cars;
+      c[5].title = `${r.cars} gerbong · muat ${L.cap} penumpang per kereta`;
+      c[6].textContent = r.seats ? `${Math.round(r.occ * 100)}%` : '–';
+      c[6].title = r.seats ? `${r.onboard} penumpang dari ${r.seats} kursi` : '';
     });
   }
 
@@ -1198,29 +1207,49 @@
     name: (a, b) => a.c.name.localeCompare(b.c.name, 'id'),
   };
 
-  function updateSortHeaders() {
-    document.querySelectorAll('#cp-cities thead th').forEach((th) => {
-      const on = th.dataset.sort === citySort.key;
+  /**
+   * Pasang pengurutan lewat klik judul kolom (th[data-sort]) pada tabel di dalam `sel`.
+   * `sort` = { key, dir } yang dibaca saat tabel diisi; `firstDir` = arah klik pertama per kolom.
+   */
+  function makeSortable(sel, sort, firstDir) {
+    const ths = () => document.querySelectorAll(`${sel} thead th[data-sort]`);
+    const paint = () => ths().forEach((th) => {
+      const on = th.dataset.sort === sort.key;
       th.classList.toggle('sorted', on);
       const label = th.dataset.label || (th.dataset.label = th.textContent);
       th.innerHTML = '';
       th.append(label);
-      if (on && citySort.key !== 'default') {
+      if (on && sort.key !== 'default') {
         const arrow = document.createElement('span');
         arrow.className = 'arrow';
-        arrow.textContent = citySort.dir > 0 ? '▲' : '▼'; // ▲ naik, ▼ turun
+        arrow.textContent = sort.dir > 0 ? '▲' : '▼'; // ▲ naik, ▼ turun
         th.append(arrow);
       }
     });
+    ths().forEach((th) => th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (sort.key === key && key !== 'default') sort.dir = -sort.dir;
+      else { sort.key = key; sort.dir = firstDir[key]; }
+      paint();
+      cityPanel.last = 0; // perbarui tabel segera
+    }));
+    return paint;
   }
+  makeSortable('#cp-cities', citySort, SORT_FIRST_DIR);
 
-  document.querySelectorAll('#cp-cities thead th').forEach((th) => th.addEventListener('click', () => {
-    const key = th.dataset.sort;
-    if (citySort.key === key && key !== 'default') citySort.dir = -citySort.dir;
-    else { citySort.key = key; citySort.dir = SORT_FIRST_DIR[key]; }
-    updateSortHeaders();
-    cityPanel.last = 0; // perbarui tabel segera
-  }));
+  // Tabel jalur: urutan bawaan = urutan warna jalur (Marun, Merah, …)
+  const lineSort = { key: 'default', dir: 1 };
+  const LINE_FIRST_DIR = { default: 1, name: 1, stations: -1, km: -1, trains: -1, cars: -1, occ: -1 };
+  const LINE_CMP = { // pembanding naik
+    default: () => 0,
+    name: (a, b) => a.L.name.localeCompare(b.L.name, 'id'),
+    stations: (a, b) => a.stations - b.stations,
+    km: (a, b) => a.km - b.km,
+    trains: (a, b) => a.trains - b.trains,
+    cars: (a, b) => a.cars - b.cars,
+    occ: (a, b) => a.occ - b.occ,
+  };
+  makeSortable('#cp-lines', lineSort, LINE_FIRST_DIR);
 
   /** Isi tabel sesuai urutan yang dipilih; nilai yang sama diurutkan dengan urutan bawaan. */
   function renderCityPanel() {

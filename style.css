@@ -162,8 +162,6 @@ button.small { padding: 6px 12px; font-size: 13px; }
 #cp-cities tr.over td:nth-child(4) { color: var(--bad); font-weight: 700; }
 #cp-cities tr.over { background: #fdf0f0; }
 /* tabel jalur */
-#cp-lines thead th { cursor: default; }
-#cp-lines thead th:hover { background: #f3f5f9; color: var(--muted); }
 #cp-lines td:nth-child(1) { color: var(--muted); width: 1%; }
 #cp-lines td, #cp-lines th { padding-left: 5px; padding-right: 5px; }
 #cp-lines thead th { letter-spacing: 0.1px; }
