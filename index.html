@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lintas Kota</title>
+  <meta name="description" content="Game strategi transportasi: hubungkan kota-kota di kepulauan dengan jalur kereta.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <header id="hud-top">
+    <div class="brand">Lintas Kota</div>
+    <div class="stats">
+      <div class="stat"><span class="lbl">Hari</span><span id="s-day">1</span></div>
+      <div class="stat"><span class="lbl">Kas</span><span id="s-money">$0</span></div>
+      <div class="stat"><span class="lbl">Terantar</span><span id="s-deliv">0</span></div>
+      <div class="stat"><span class="lbl">Kepuasan</span><div class="bar"><div id="s-sat"></div></div></div>
+    </div>
+    <div class="speed" role="group" aria-label="Kecepatan">
+      <button data-speed="0" title="Jeda (Spasi)">❚❚</button>
+      <button data-speed="1" title="Normal (1)">1×</button>
+      <button data-speed="2" title="Cepat (2)">2×</button>
+      <button data-speed="3" title="Sangat cepat (3)">3×</button>
+    </div>
+  </header>
+
+  <footer id="hud-bottom">
+    <div class="row">
+      <div id="chips" aria-label="Jalur"></div>
+      <div id="line-panel" class="row" hidden>
+        <span id="lp-name"></span>
+        <span id="lp-info"></span>
+        <button id="b-extend">Perpanjang</button>
+        <button id="b-train">+ Kereta</button>
+        <button id="b-cap">+ Gerbong</button>
+        <button id="b-trim">Potong ujung</button>
+        <button id="b-del" class="danger">Hapus jalur</button>
+      </div>
+    </div>
+    <div id="hint"></div>
+  </footer>
+
+  <div id="toasts"></div>
+  <div id="tooltip" hidden></div>
+
+  <div id="overlay">
+    <div class="card" id="card-start">
+      <h1>Lintas Kota</h1>
+      <p class="sub">Hubungkan kota-kota di kepulauan dengan jalur kereta sebelum warganya kehilangan kesabaran.</p>
+      <ul>
+        <li><b>Bangun jalur:</b> klik sebuah kota, lalu klik kota lain untuk memasang rel. Biaya rel tergantung jarak dan medan: melintasi laut (jembatan) dan gunung (terowongan) lebih mahal.</li>
+        <li><b>Kereta</b> mengantar penumpang ke kota tujuan, termasuk transit antar-jalur. Tiap penumpang yang sampai menambah kas dan kepuasan.</li>
+        <li><b>Titik merah</b> di samping kota = penumpang yang tujuannya belum terjangkau jaringan.</li>
+        <li>Kota yang <b>terlalu penuh</b> menurunkan kepuasan. Kepuasan habis = permainan selesai.</li>
+      </ul>
+      <p class="keys">Spasi: jeda · 1/2/3: kecepatan · Esc: selesai membangun</p>
+      <button id="b-start" class="primary">Mulai</button>
+      <p class="best" id="best-start"></p>
+    </div>
+    <div class="card" id="card-over" hidden>
+      <h1>Jaringan kewalahan!</h1>
+      <p class="sub" id="over-reason"></p>
+      <div class="result">
+        <div><span class="lbl">Hari bertahan</span><b id="r-day">0</b></div>
+        <div><span class="lbl">Penumpang terantar</span><b id="r-deliv">0</b></div>
+        <div><span class="lbl">Rekor</span><b id="r-best">0</b></div>
+      </div>
+      <button id="b-restart" class="primary">Main lagi</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
