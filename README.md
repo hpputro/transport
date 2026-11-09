@@ -1,6 +1,8 @@
 # Lintas Kota
 
-Game strategi transportasi berbasis browser: hubungkan kota-kota di sebuah kepulauan dengan jalur kereta, antar penumpang ke tujuannya, dan jaga agar warga tetap puas.
+Game strategi transportasi berbasis browser: hubungkan ibu kota provinsi di Indonesia dengan jalur kereta, antar penumpang ke tujuannya, dan jaga agar warga tetap puas.
+
+Main langsung: https://hpputro.github.io/transport/
 
 ## Cara main
 
@@ -8,12 +10,17 @@ Buka `index.html` di browser. Tidak perlu instalasi atau server.
 
 ### Target
 
-Sambungkan **semua kota** di peta dalam satu jaringan. Kota muncul bertahap sampai jumlah kota peta itu tercapai. Kalau semua kota yang sudah ada telah tersambung, kota berikutnya muncul lebih cepat.
+Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul bertahap di posisi geografisnya. Kalau semua kota yang sudah ada telah tersambung, kota berikutnya muncul lebih cepat.
 
-| Peta | 1 | 2 | 3 | 4 | 5 | 6 |
-|---|---|---|---|---|---|---|
-| Jumlah kota | 15 | 20 | 25 | 30 | 35 | 38 (semua ibu kota provinsi) |
-| Kas awal | $1500 | $2000 | $2500 | $3000 | $3500 | $4000 |
+| Peta | Wilayah baru | Jumlah kota | Kas awal |
+|---|---|---|---|
+| 1 | Sumatra | 10 | $1500 |
+| 2 | + Jawa | 16 | $2500 |
+| 3 | + Sulawesi | 22 | $3500 |
+| 4 | + Papua | 28 | $4500 |
+| 5 | + Kalimantan | 33 | $5500 |
+| 6 | + Bali & Nusa Tenggara | 36 | $6500 |
+| 7 | + Maluku | 38 (semua) | $7500 |
 
 - **Skor** tiap peta adalah jumlah penumpang terantar. Rekornya disimpan per peta.
 - **Setelah menang** kamu bisa memilih:
@@ -23,6 +30,7 @@ Sambungkan **semua kota** di peta dalam satu jaringan. Kota muncul bertahap samp
 
 - **Bangun jalur**: klik sebuah kota, lalu klik kota-kota berikutnya. Setiap ruas rel ada biayanya, tergantung jarak dan medan:
   - darat ×1
+  - melintasi negara tetangga ×2
   - gunung ×2,5 (terowongan)
   - laut ×4 (jembatan)
 - **Perpanjang jalur**: pilih jalurnya, lalu klik salah satu ujungnya. Kamu bisa memperpanjang dari ujung awal maupun ujung akhir.
@@ -51,6 +59,7 @@ Kecepatan 1–5 setara ¼×, ½×, 1×, 2×, 3× waktu normal. Permainan dimulai
 
 - `index.html`: kerangka halaman dan HUD
 - `style.css`: tampilan HUD
-- `game.js`: seluruh logika permainan (pembuatan peta prosedural, rute penumpang dengan BFS, simulasi kereta, dan rendering canvas)
+- `geo.js`: data geografi: garis pantai yang disederhanakan, pegunungan utama, koordinat 38 ibu kota provinsi, dan urutan wilayah tiap peta
+- `game.js`: seluruh logika permainan (peta medan dari data geografi, rute penumpang dengan BFS, simulasi kereta, dan rendering canvas)
 
-Peta dibuat acak setiap permainan. Nama kota diambil acak dari ibu kota 38 provinsi di Indonesia (letaknya di peta tidak mengikuti geografi asli).
+Garis pantai digambar kasar dari titik-titik koordinat: cukup untuk mengenali bentuk pulau dan menghitung biaya rel, bukan peta yang akurat. Urutan munculnya kota dalam satu peta diacak setiap permainan.

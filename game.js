@@ -2,17 +2,21 @@
   'use strict';
 
   // ================= Konstanta =================
-  const W = 1600, H = 1000;          // ukuran dunia (koordinat peta)
+  const GEO = window.LINTAS_GEO;
+  // Proyeksi sederhana bujur/lintang → koordinat dunia (1° = PX_PER_DEG px)
+  const LON0 = 93.8, LAT0 = 6.6, PX_PER_DEG = 90;
+  const W = 4330, H = 1600;          // ukuran dunia: 93.8°–141.9° BT, 6.6° LU–11.2° LS
+  const proj = (lon, lat) => ({ x: (lon - LON0) * PX_PER_DEG, y: (LAT0 - lat) * PX_PER_DEG });
   const CELL = 10;                   // ukuran sel medan
   const GW = W / CELL, GH = H / CELL;
-  const LAND = 0, WATER = 1, MOUNT = 2;
+  const LAND = 0, WATER = 1, MOUNT = 2, FOREIGN = 3;
 
   const LINE_COLORS = ['#e63946', '#1f78d1', '#f0a202', '#2a9d4b', '#8e44ad', '#e0609a'];
   const LINE_NAMES = ['Merah', 'Biru', 'Kuning', 'Hijau', 'Ungu', 'Merah Muda'];
   const UNLOCK_AT = [0, 0, 0, 40, 120, 250]; // jumlah penumpang terantar untuk membuka jalur
 
   const DAY_LEN = 20;        // detik per hari permainan
-  const TRAIN_SPEED = 90;    // px per detik
+  const TRAIN_SPEED = 110;   // px per detik (±1,2° per detik)
   const TRAIN_COST = 400;
   const CAP_COST = 250;
   const CAP_STEP = 4;
@@ -21,7 +25,8 @@
   const UPKEEP = 20;         // biaya perawatan per kereta per hari
   const START_MONEY = 1500;
   const SPEEDS = [0.25, 0.5, 1, 2, 3]; // tombol keyboard 1..5; bawaan = 1× (tingkat ke-3)
-  const LAST_MAP = 6;       // peta 1..6: 15, 20, 25, 30, 35, 38 kota
+  const MAX_ZOOM = 6;        // zoom maksimal relatif terhadap tampilan seluruh wilayah
+  const LAST_MAP = GEO.LEVEL_REGIONS.length; // peta 1 = Sumatra, tiap peta menambah satu wilayah
   const SIZE_CAP = [0, 8, 12, 16];
   const SIZE_R = [0, 13, 16, 20];
   const SIZE_NAME = ['', 'Kota kecil', 'Kota sedang', 'Kota besar'];
@@ -33,7 +38,14 @@
 
   let S = null;              // state permainan
   let terrainCanvas = null;
-  const view = { scale: 1, ox: 0, oy: 0, dpr: 1, fit: 1, zoom: 1, cx: W / 2, cy: H / 2, area: { x: 0, y: 0, w: 1, h: 1 }, needsInit: true };
+  let TERRAIN = null;        // grid medan Indonesia (dibangun sekali saat halaman dimuat)
+  const view = {
+    scale: 1, ox: 0, oy: 0, dpr: 1, fit: 1, zoom: 1, cx: W / 2, cy: H / 2,
+    area: { x: 0, y: 0, w: 1, h: 1 }, needsInit: true,
+    bounds: { x0: 0, y0: 0, x1: W, y1: H }, // bagian peta yang aktif (wilayah peta ini)
+  };
+  // Pengali ukuran kota/label/kereta: saat peta di-zoom jauh, elemen diperbesar supaya tetap terbaca
+  let UI = 1;
   const mouse = { x: 0, y: 0, cx: 0, cy: 0, inside: false };
 
   // ================= Utilitas =================
@@ -77,72 +89,109 @@
     };
   }
 
-  function genTerrain(rng) {
-    const n1 = makeNoise(rng, 4, 3), n2 = makeNoise(rng, 9, 6), n3 = makeNoise(rng, 22, 14);
-    const elev = new Float32Array(GW * GH);
-    for (let y = 0; y < GH; y++) {
-      for (let x = 0; x < GW; x++) {
-        const u = (x + 0.5) / GW, v = (y + 0.5) / GH;
-        let e = 0.55 * n1(u, v) + 0.3 * n2(u, v) + 0.15 * n3(u, v);
-        const edge = Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2;
-        e -= 0.5 * Math.pow(edge, 3); // tepi peta cenderung laut → kepulauan
-        elev[y * GW + x] = e;
+  function inPoly(x, y, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+
+  function distToPolyline(x, y, pts) {
+    let best = Infinity;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+      const dx = bx - ax, dy = by - ay;
+      const t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+      best = Math.min(best, Math.hypot(x - (ax + dx * t), y - (ay + dy * t)));
+    }
+    return best;
+  }
+
+  /** Rasterisasi garis pantai & pegunungan dari geo.js menjadi grid medan (sekali saja). */
+  function buildTerrain() {
+    const withBox = (poly) => {
+      const lons = poly.map((p) => p[0]), lats = poly.map((p) => p[1]);
+      return { poly, x0: Math.min(...lons), x1: Math.max(...lons), y0: Math.min(...lats), y1: Math.max(...lats) };
+    };
+    const land = GEO.LAND.map(withBox), foreign = GEO.FOREIGN.map(withBox);
+    const hit = (list, lon, lat) => list.some((b) => lon >= b.x0 && lon <= b.x1 && lat >= b.y0 && lat <= b.y1 && inPoly(lon, lat, b.poly));
+    const type = new Uint8Array(GW * GH);
+    const noise = makeNoise(mulberry32(12345), 60, 24);
+    const shade = new Float32Array(GW * GH);
+    for (let cy = 0; cy < GH; cy++) {
+      for (let cx = 0; cx < GW; cx++) {
+        const lon = LON0 + ((cx + 0.5) * CELL) / PX_PER_DEG, lat = LAT0 - ((cy + 0.5) * CELL) / PX_PER_DEG;
+        const i = cy * GW + cx;
+        shade[i] = noise(cx / GW, cy / GH);
+        if (hit(foreign, lon, lat)) type[i] = FOREIGN;
+        else if (hit(land, lon, lat)) {
+          const mount = GEO.RIDGES.some(([w, pts]) => distToPolyline(lon, lat, pts) < w * (0.75 + 0.5 * shade[i]));
+          type[i] = mount ? MOUNT : LAND;
+        } else type[i] = WATER;
       }
     }
-    const sorted = Array.from(elev).sort((a, b) => a - b);
-    const waterLvl = sorted[Math.floor(sorted.length * 0.34)];
-    const mountLvl = sorted[Math.floor(sorted.length * 0.9)];
-    const type = new Uint8Array(GW * GH);
-    for (let i = 0; i < type.length; i++) {
-      type[i] = elev[i] < waterLvl ? WATER : elev[i] > mountLvl ? MOUNT : LAND;
+    // jarak tiap sel laut ke daratan terdekat (untuk gradasi warna laut dangkal → dalam)
+    const depth = new Uint16Array(GW * GH).fill(65535);
+    const q = [];
+    for (let i = 0; i < type.length; i++) if (type[i] !== WATER) { depth[i] = 0; q.push(i); }
+    for (let h = 0; h < q.length; h++) {
+      const i = q[h], x = i % GW, y = (i / GW) | 0;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
+        const j = ny * GW + nx;
+        if (depth[j] > depth[i] + 1) { depth[j] = depth[i] + 1; q.push(j); }
+      }
     }
-    return { elev, type, waterLvl, mountLvl, maxE: sorted[sorted.length - 1], minE: sorted[0] };
+    return { type, shade, depth };
   }
 
   function terrainAt(x, y) {
     const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
     if (cx < 0 || cy < 0 || cx >= GW || cy >= GH) return WATER;
-    return S.terrain.type[cy * GW + cx];
+    return TERRAIN.type[cy * GW + cx];
   }
 
+  /** Gambar medan ke kanvas terpisah (resolusi setengah, diskalakan saat digambar). */
   function renderTerrain() {
-    const T = S.terrain;
+    const T = TERRAIN, R = 0.5;
     terrainCanvas = document.createElement('canvas');
-    terrainCanvas.width = W; terrainCanvas.height = H;
+    terrainCanvas.width = W * R; terrainCanvas.height = H * R;
     const g = terrainCanvas.getContext('2d');
+    const s = CELL * R;
     const at = (x, y) => (x < 0 || y < 0 || x >= GW || y >= GH) ? WATER : T.type[y * GW + x];
     for (let y = 0; y < GH; y++) {
       for (let x = 0; x < GW; x++) {
-        const i = y * GW + x, t = T.type[i], e = T.elev[i];
+        const i = y * GW + x, t = T.type[i], e = T.shade[i];
         let col;
-        if (t === WATER) {
-          col = mix('#a8d5e6', '#78b6d2', clamp((T.waterLvl - e) / 0.12, 0, 1));
-        } else if (t === MOUNT) {
-          col = mix('#cbbf9f', '#a8977a', clamp((e - T.mountLvl) / (T.maxE - T.mountLvl), 0, 1));
-        } else {
+        if (t === WATER) col = mix('#a8d5e6', '#78b6d2', clamp(T.depth[i] / 8, 0, 1));
+        else if (t === FOREIGN) col = mix('#e3e1d8', '#d8d5ca', e);
+        else if (t === MOUNT) col = mix('#cbbf9f', '#a8977a', e);
+        else {
           const coast = at(x - 1, y) === WATER || at(x + 1, y) === WATER || at(x, y - 1) === WATER || at(x, y + 1) === WATER;
-          col = coast ? '#efe4bf' : mix('#e6eed2', '#d4e0b8', clamp((e - T.waterLvl) / (T.mountLvl - T.waterLvl), 0, 1));
+          col = coast ? '#efe4bf' : mix('#e6eed2', '#d0ddb2', e);
         }
         g.fillStyle = col;
-        g.fillRect(x * CELL, y * CELL, CELL, CELL);
+        g.fillRect(x * s, y * s, s + 0.5, s + 0.5);
       }
     }
     // simbol gunung
-    const r = mulberry32(S.seed + 7);
+    const r = mulberry32(7);
     for (let y = 1; y < GH - 1; y += 3) {
       for (let x = 1; x < GW - 1; x += 3) {
-        if (T.type[y * GW + x] !== MOUNT || r() > 0.55) continue;
-        const px = x * CELL + 5 + (r() - 0.5) * 6, py = y * CELL + 7 + (r() - 0.5) * 6;
-        const s = 6 + r() * 3;
+        if (T.type[y * GW + x] !== MOUNT || r() > 0.6) continue;
+        const px = (x * CELL + 5 + (r() - 0.5) * 6) * R, py = (y * CELL + 7 + (r() - 0.5) * 6) * R;
+        const m = (6 + r() * 3) * R;
         g.fillStyle = '#8f7f62';
-        g.beginPath(); g.moveTo(px - s, py + s * 0.6); g.lineTo(px, py - s * 0.8); g.lineTo(px + s, py + s * 0.6); g.closePath(); g.fill();
+        g.beginPath(); g.moveTo(px - m, py + m * 0.6); g.lineTo(px, py - m * 0.8); g.lineTo(px + m, py + m * 0.6); g.closePath(); g.fill();
         g.fillStyle = '#f4f1e8';
-        g.beginPath(); g.moveTo(px - s * 0.35, py - s * 0.25); g.lineTo(px, py - s * 0.8); g.lineTo(px + s * 0.35, py - s * 0.25); g.closePath(); g.fill();
+        g.beginPath(); g.moveTo(px - m * 0.35, py - m * 0.25); g.lineTo(px, py - m * 0.8); g.lineTo(px + m * 0.35, py - m * 0.25); g.closePath(); g.fill();
       }
     }
   }
 
-  /** Biaya rel antar dua titik: jarak × pengali medan (darat 1, gunung 2.5, laut 4). */
+  /** Biaya rel antar dua titik: jarak × pengali medan (darat 1, negara tetangga 2, gunung 2.5, laut 4). */
   function segCost(a, b) {
     const d = dist(a, b);
     const n = Math.max(1, Math.ceil(d / 8));
@@ -150,58 +199,57 @@
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n;
       const ty = terrainAt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
-      c += (ty === WATER ? 4 : ty === MOUNT ? 2.5 : 1) * (d / n);
+      c += (ty === WATER ? 4 : ty === MOUNT ? 2.5 : ty === FOREIGN ? 2 : 1) * (d / n);
     }
     return Math.round(c * 0.7 / 5) * 5;
   }
 
   // ================= Kota =================
-  // Ibu kota 38 provinsi di Indonesia. Nama dipakai acak; letaknya di peta tidak mengikuti geografi asli.
-  const CAPITALS = [
-    'Banda Aceh', 'Medan', 'Padang', 'Pekanbaru', 'Tanjungpinang', 'Jambi', 'Palembang', 'Pangkalpinang',
-    'Bengkulu', 'Bandar Lampung', 'Jakarta', 'Bandung', 'Serang', 'Semarang', 'Yogyakarta', 'Surabaya',
-    'Denpasar', 'Mataram', 'Kupang', 'Pontianak', 'Palangka Raya', 'Banjarbaru', 'Samarinda', 'Tanjung Selor',
-    'Manado', 'Gorontalo', 'Palu', 'Mamuju', 'Makassar', 'Kendari', 'Ambon', 'Sofifi',
-    'Jayapura', 'Manokwari', 'Merauke', 'Nabire', 'Wamena', 'Sorong',
-  ];
-
-  function genName(rng) {
-    const used = new Set(S.cities.map((c) => c.name));
-    const free = CAPITALS.filter((n) => !used.has(n));
-    if (!free.length) return 'Kota ' + (S.cities.length + 1);
-    return free[Math.floor(rng() * free.length)];
+  // Ibu kota provinsi di posisi aslinya (lihat geo.js)
+  const ALL_CITIES = GEO.CITIES.map(([name, lon, lat, region, label]) => ({ name, region, label, ...proj(lon, lat) }));
+  const levelRegions = (level) => GEO.LEVEL_REGIONS.slice(0, level);
+  const levelCities = (level) => ALL_CITIES.filter((c) => levelRegions(level).includes(c.region));
+  const mapCities = (level) => levelCities(level).length;
+  const regionName = (key) => GEO.REGIONS[key].name;
+  /** Nama peta: "Sumatra", "Sumatra + Jawa", ... (dipendekkan untuk peta besar). */
+  function levelTitle(level) {
+    const names = levelRegions(level).map(regionName);
+    return names.length <= 2 ? names.join(' + ') : `${names[0]} … ${names[names.length - 1]}`;
   }
-
-  function landAround(x, y, r) {
-    for (let a = 0; a < 8; a++) {
-      const ang = a * Math.PI / 4;
-      if (terrainAt(x + Math.cos(ang) * r, y + Math.sin(ang) * r) === WATER) return false;
+  /** Kotak wilayah aktif peta ini (koordinat dunia), dengan sedikit tepi. */
+  function levelBounds(level) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const key of levelRegions(level)) {
+      const [lon0, lon1, lat0, lat1] = GEO.REGIONS[key].bounds;
+      const a = proj(lon0 - 0.5, lat1 + 0.5), b = proj(lon1 + 0.5, lat0 - 0.5);
+      x0 = Math.min(x0, a.x); y0 = Math.min(y0, a.y); x1 = Math.max(x1, b.x); y1 = Math.max(y1, b.y);
     }
-    return true;
+    return { x0: Math.max(0, x0), y0: Math.max(0, y0), x1: Math.min(W, x1), y1: Math.min(H, y1) };
   }
 
+  /** Munculkan kota berikutnya dari antrean kota peta ini. */
   function spawnCity() {
-    const rng = S.rng, n = S.cities.length;
-    let pos = null;
-    // makin lama gagal, syarat jarak antarkota dilonggarkan (peta besar bisa berisi 38 kota)
-    for (let tries = 0; tries < 2000 && !pos; tries++) {
-      const radius = (n < 3 ? 230 : 300 + n * 45) + tries * 2;
-      const minD = tries < 350 ? 150 : tries < 800 ? 110 : tries < 1400 ? 85 : 65;
-      const x = 70 + rng() * (W - 140), y = 70 + rng() * (H - 140);
-      if (Math.hypot(x - W / 2, y - H / 2) > radius) continue;
-      const ty = terrainAt(x, y);
-      if (!(ty === LAND || (tries >= 1400 && ty === MOUNT)) || !landAround(x, y, 14)) continue;
-      if (S.cities.some((c) => Math.hypot(c.x - x, c.y - y) < minD)) continue;
-      pos = { x, y };
-    }
-    if (!pos) return null;
+    const def = S.pool.shift();
+    if (!def) return null;
     const city = {
-      id: n, name: genName(rng), x: pos.x, y: pos.y,
-      size: 1, growth: 0, wait: [], acc: rng() * 0.6, born: S.t, overT: 0,
+      id: S.cities.length, name: def.name, region: def.region, label: def.label, x: def.x, y: def.y,
+      size: 1, growth: 0, wait: [], acc: S.rng() * 0.6, born: S.t, overT: 0,
     };
     S.cities.push(city);
     recomputeNetwork();
     return city;
+  }
+
+  /** Urutan acak kota peta ini; 3 kota pertama saling berdekatan supaya awal permainan tidak terlalu berat. */
+  function makePool(level, rng) {
+    const pool = levelCities(level).slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const first = pool[0];
+    const near = pool.slice(1).sort((a, b) => dist(a, first) - dist(b, first)).slice(0, 2);
+    return [first, ...near, ...pool.filter((c) => c !== first && !near.includes(c))];
   }
 
   function spawnPassenger(city) {
@@ -259,7 +307,7 @@
     const idx = arr.indexOf(lineId) - (arr.length - 1) / 2;
     const A = S.cities[lo], B = S.cities[hi];
     const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1;
-    const off = idx * 9;
+    const off = idx * 9 * UI;
     return [(-dy / len) * off, (dx / len) * off];
   }
 
@@ -414,23 +462,22 @@
   }
 
   // ================= Siklus permainan =================
-  const mapCities = (level) => Math.min(CAPITALS.length, 10 + 5 * level);
   /** Input & simulasi berhenti saat belum mulai, kalah, atau sedang memilih setelah menang. */
   const blocked = () => !S || !S.started || S.over || S.winChoice;
 
   function newGame(seed, level) {
     S = {
       seed, rng: mulberry32(seed), level, target: mapCities(level),
-      t: 0, day: 1, money: START_MONEY + (level - 1) * 500, earned: 0, delivered: 0, satisfaction: 100,
+      t: 0, day: 1, money: START_MONEY + (level - 1) * 1000, earned: 0, delivered: 0, satisfaction: 100,
       cities: [], lines: [], trains: [], dist: [], segMap: new Map(), connected: [], largest: 0,
       nextCityAt: 14, speed: 1, paused: false, started: false, over: false,
       won: false, winChoice: false, relaxed: false,
       selected: null, building: false, buildEnd: 'tail', unlocked: 3,
       particles: [],
     };
-    S.terrain = genTerrain(S.rng);
+    S.pool = makePool(level, S.rng);
+    view.bounds = levelBounds(level);
     for (let i = 0; i < 3; i++) spawnCity();
-    renderTerrain();
     renderChips();
     updatePanel();
     updateHint();
@@ -451,7 +498,7 @@
       if (S.t >= S.nextCityAt) {
         const c = spawnCity();
         S.nextCityAt = S.t + 15 + S.cities.length * 0.6;
-        if (c) toast(`Kota baru muncul: ${c.name} (${S.cities.length}/${S.target})`, 'good');
+        if (c) toast(`Kota baru: ${c.name}, ${regionName(c.region)} (${S.cities.length}/${S.target})`, 'good');
         else S.target = S.cities.length; // peta sudah terlalu padat; target disesuaikan
       }
     }
@@ -526,11 +573,11 @@
     const last = S.level >= LAST_MAP;
     if (!last) saveNum('map', Math.max(loadNum('map'), S.level + 1));
     const actions = [];
-    if (!last) actions.push({ label: `Lanjut ke Peta ${S.level + 1} (${mapCities(S.level + 1)} kota)`, primary: true, fn: () => startMap(S.level + 1) });
+    if (!last) actions.push({ label: `Lanjut ke Peta ${S.level + 1}: +${regionName(GEO.LEVEL_REGIONS[S.level])} (${mapCities(S.level + 1)} kota)`, primary: true, fn: () => startMap(S.level + 1) });
     actions.push({ label: 'Tetap di peta ini', primary: last, fn: stayRelaxed });
     if (last) actions.push({ label: 'Main lagi dari Peta 1', fn: () => startMap(1) });
     showResult({
-      title: last ? 'Nusantara tersambung! Semua peta tamat.' : `Peta ${S.level} selesai!`,
+      title: last ? 'Nusantara tersambung! Semua peta tamat.' : `Peta ${S.level} (${levelTitle(S.level)}) selesai!`,
       kind: 'good',
       reason: `Semua ${S.cities.length} kota terhubung dalam satu jaringan. Kalau tetap di peta ini, kepuasan selalu penuh dan kamu tidak bisa kalah.`,
       stats: [['Penumpang terantar', S.delivered], [`Rekor peta ${S.level}`, best], ['Hari', S.day]],
@@ -574,7 +621,8 @@
     hideResult();
     setSpeed(1);
     refreshUi();
-    toast(`Peta ${level}: hubungkan ${S.target} kota dalam satu jaringan`);
+    const added = level > 1 ? `+${regionName(GEO.LEVEL_REGIONS[level - 1])}` : regionName(GEO.LEVEL_REGIONS[0]);
+    toast(`Peta ${level}: ${added} · hubungkan ${S.target} kota dalam satu jaringan`);
   }
 
   // ================= Input =================
@@ -586,7 +634,7 @@
     let best = null, bd = Infinity;
     for (const c of S.cities) {
       const d = dist(c, p);
-      if (d < SIZE_R[c.size] + 14 && d < bd) { best = c; bd = d; }
+      if (d < (SIZE_R[c.size] + 14) * UI && d < bd) { best = c; bd = d; }
     }
     return best;
   }
@@ -600,7 +648,7 @@
         const ax = A.x + ox, ay = A.y + oy, bx = B.x + ox, by = B.y + oy;
         const dx = bx - ax, dy = by - ay;
         const t = clamp(((p.x - ax) * dx + (p.y - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
-        if (Math.hypot(p.x - (ax + dx * t), p.y - (ay + dy * t)) < 10) return L;
+        if (Math.hypot(p.x - (ax + dx * t), p.y - (ay + dy * t)) < 10 * UI) return L;
       }
     }
     return null;
@@ -683,7 +731,7 @@
 
   function zoomAt(sx, sy, z) {
     const wp = toWorld(sx, sy);
-    view.zoom = clamp(z, 1, 4);
+    view.zoom = clamp(z, 1, MAX_ZOOM);
     view.scale = view.fit * view.zoom;
     const a = view.area;
     view.cx = wp.x - (sx - (a.x + a.w / 2)) / view.scale;
@@ -793,7 +841,7 @@
     S.started = true;
     $('overlay').hidden = true;
     setSpeed(1);
-    toast(`Peta 1: hubungkan ${S.target} kota · klik sebuah kota untuk mulai membangun jalur`);
+    toast(`Peta 1: Sumatra · hubungkan ${S.target} kota · klik sebuah kota untuk mulai membangun jalur`);
   });
   $('b-continue').addEventListener('click', () => startMap(Math.min(LAST_MAP, loadNum('map'))));
   $('b-next').addEventListener('click', () => { if (S.won && S.level < LAST_MAP) startMap(S.level + 1); });
@@ -801,6 +849,7 @@
   // ================= UI DOM =================
   function toast(msg, kind) {
     const box = $('toasts');
+    box.style.top = $('hud-top').offsetHeight + 10 + 'px'; // tepat di bawah HUD atas (tingginya bisa berubah di HP)
     if (box.lastChild && box.lastChild.textContent === msg && box.lastChild.style.opacity !== '0') return;
     const el = document.createElement('div');
     el.className = 'toast' + (kind ? ' ' + kind : '');
@@ -897,13 +946,15 @@
     const key = [S.level, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.delivered, Math.round(S.satisfaction)].join('|');
     if (key !== lastHud) {
       lastHud = key;
-      $('s-map').textContent = `Peta ${S.level}${S.relaxed ? ' · santai' : ''}`;
+      const newest = regionName(GEO.LEVEL_REGIONS[S.level - 1]);
+      $('s-map').textContent = `Peta ${S.level} · ${S.level > 1 ? '+' : ''}${newest}${S.relaxed ? ' · santai' : ''}`;
+      $('s-map').title = levelRegions(S.level).map(regionName).join(' + ');
       // jumlah kota dalam jaringan terbesar / target kota peta ini
-      $('s-conn').textContent = `${S.largest}/${S.target} terhubung`;
-      $('s-conn').title = `${S.cities.length} dari ${S.target} kota sudah muncul`;
+      $('s-conn').textContent = `${S.largest}/${S.target} kota`;
+      $('s-conn').title = `Kota terhubung dalam satu jaringan. ${S.cities.length} dari ${S.target} kota sudah muncul.`;
       $('s-sat-lbl').textContent = S.relaxed ? 'Kepuasan (aman)' : 'Kepuasan';
       $('b-next').hidden = !(S.relaxed && S.level < LAST_MAP);
-      $('b-next').textContent = `Peta ${S.level + 1} →`;
+      $('b-next').textContent = `Peta ${S.level + 1}: +${regionName(GEO.LEVEL_REGIONS[S.level] || GEO.LEVEL_REGIONS[0])} →`;
       $('s-day').textContent = S.day;
       const m = $('s-money');
       m.textContent = `$${Math.round(S.money)}`;
@@ -941,13 +992,17 @@
 
   function applyView() {
     const a = view.area;
-    view.zoom = clamp(view.zoom, 1, 4);
+    const B = view.bounds, bw = B.x1 - B.x0, bh = B.y1 - B.y0;
+    view.zoom = clamp(view.zoom, 1, MAX_ZOOM);
     view.scale = view.fit * view.zoom;
+    // kamera dibatasi ke wilayah peta yang aktif
     const halfW = a.w / 2 / view.scale, halfH = a.h / 2 / view.scale;
-    view.cx = halfW * 2 >= W ? W / 2 : clamp(view.cx, halfW, W - halfW);
-    view.cy = halfH * 2 >= H ? H / 2 : clamp(view.cy, halfH, H - halfH);
+    view.cx = halfW * 2 >= bw ? (B.x0 + B.x1) / 2 : clamp(view.cx, B.x0 + halfW, B.x1 - halfW);
+    view.cy = halfH * 2 >= bh ? (B.y0 + B.y1) / 2 : clamp(view.cy, B.y0 + halfH, B.y1 - halfH);
     view.ox = a.x + a.w / 2 - view.cx * view.scale;
     view.oy = a.y + a.h / 2 - view.cy * view.scale;
+    // ukuran elemen ikut membesar saat skala kecil (maks. 2,6×), supaya kota tetap terlihat & mudah diklik
+    UI = clamp(0.8 / view.scale, 1, 2.6);
   }
 
   function resize() {
@@ -955,16 +1010,18 @@
     canvas.width = Math.round(window.innerWidth * view.dpr);
     canvas.height = Math.round(window.innerHeight * view.dpr);
     const top = $('hud-top').offsetHeight, bottom = $('hud-bottom').offsetHeight;
-    view.area = { x: 0, y: top, w: window.innerWidth, h: Math.max(50, window.innerHeight - top - bottom) };
-    view.fit = Math.max(0.05, Math.min((view.area.w - 16) / W, (view.area.h - 16) / H));
+    $('toasts').style.top = top + 10 + 'px'; // notifikasi tepat di bawah HUD atas
+    view.area ={ x: 0, y: top, w: window.innerWidth, h: Math.max(50, window.innerHeight - top - bottom) };
+    const B = view.bounds, bw = B.x1 - B.x0, bh = B.y1 - B.y0;
+    view.fit = Math.max(0.02, Math.min((view.area.w - 16) / bw, (view.area.h - 16) / bh));
     if (view.needsInit) {
-      // layar tegak (HP): perbesar supaya peta mengisi tinggi layar, fokus ke kota-kota awal
+      // tampilkan seluruh wilayah; hanya kalau peta jadi terlalu kecil (mis. di HP) perbesar & fokus ke kota awal
       view.needsInit = false;
-      const cover = Math.max(view.area.w / W, view.area.h / H) / view.fit;
-      view.zoom = cover > 1.3 ? Math.min(2.5, cover) : 1;
+      const cover = Math.max(view.area.w / bw, view.area.h / bh) / view.fit;
+      view.zoom = view.area.w < 700 && view.fit < 0.4 ? clamp(Math.min(cover, 0.5 / view.fit), 1, MAX_ZOOM) : 1;
       const n = S.cities.length || 1;
-      view.cx = S.cities.reduce((s, c) => s + c.x, 0) / n || W / 2;
-      view.cy = S.cities.reduce((s, c) => s + c.y, 0) / n || H / 2;
+      view.cx = S.cities.reduce((s, c) => s + c.x, 0) / n;
+      view.cy = S.cities.reduce((s, c) => s + c.y, 0) / n;
     }
     applyView();
   }
@@ -977,7 +1034,7 @@
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     const k = view.scale * view.dpr;
     ctx.setTransform(k, 0, 0, k, view.ox * view.dpr, view.oy * view.dpr);
-    ctx.drawImage(terrainCanvas, 0, 0);
+    ctx.drawImage(terrainCanvas, 0, 0, W, H);
 
     drawLines();
     drawPreview();
@@ -985,10 +1042,10 @@
     for (const tr of S.trains) drawTrain(tr);
 
     ctx.textAlign = 'center';
-    ctx.font = '700 16px system-ui, sans-serif';
+    ctx.font = `700 ${16 * UI}px system-ui, sans-serif`;
     for (const p of S.particles) {
       ctx.globalAlpha = clamp(p.life / 0.6, 0, 1);
-      ctx.lineWidth = 3; ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3 * UI; ctx.strokeStyle = '#fff';
       ctx.strokeText(p.text, p.x, p.y);
       ctx.fillStyle = p.color;
       ctx.fillText(p.text, p.x, p.y);
@@ -1007,11 +1064,11 @@
         const A = S.cities[a], B = S.cities[b];
         if (sel) {
           ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-          ctx.lineWidth = 14;
+          ctx.lineWidth = 14 * UI;
           ctx.beginPath(); ctx.moveTo(A.x + ox, A.y + oy); ctx.lineTo(B.x + ox, B.y + oy); ctx.stroke();
         }
         ctx.strokeStyle = L.color;
-        ctx.lineWidth = 8;
+        ctx.lineWidth = 8 * UI;
         ctx.beginPath(); ctx.moveTo(A.x + ox, A.y + oy); ctx.lineTo(B.x + ox, B.y + oy); ctx.stroke();
       }
     }
@@ -1025,22 +1082,22 @@
     const hover = cityAt(mouse);
     const valid = hover && !st.includes(hover.id);
     const to = valid ? hover : mouse;
-    if (dist(from, to) < 20) return;
+    if (dist(from, to) < 20 * UI) return;
     const cost = segCost(from, to);
     ctx.save();
-    ctx.setLineDash([10, 8]);
+    ctx.setLineDash([10 * UI, 8 * UI]);
     ctx.strokeStyle = L.color;
     ctx.globalAlpha = 0.75;
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 5 * UI;
     ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
     ctx.restore();
     const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
     const label = `$${cost}`;
-    ctx.font = '700 15px system-ui, sans-serif';
-    const w = ctx.measureText(label).width + 14;
+    ctx.font = `700 ${15 * UI}px system-ui, sans-serif`;
+    const w = ctx.measureText(label).width + 14 * UI;
     ctx.fillStyle = '#fff';
-    roundRect(mx - w / 2, my - 13, w, 26, 7); ctx.fill();
-    ctx.strokeStyle = cost > S.money ? '#d64045' : L.color; ctx.lineWidth = 2; ctx.stroke();
+    roundRect(mx - w / 2, my - 13 * UI, w, 26 * UI, 7 * UI); ctx.fill();
+    ctx.strokeStyle = cost > S.money ? '#d64045' : L.color; ctx.lineWidth = 2 * UI; ctx.stroke();
     ctx.fillStyle = cost > S.money ? '#d64045' : '#1f2433';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(label, mx, my + 1);
@@ -1063,6 +1120,7 @@
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.ang);
+    ctx.scale(UI, UI);
     const len = 28 + (tr.line.cap - BASE_CAP) * 1.1;
     ctx.fillStyle = tr.line.color;
     ctx.strokeStyle = '#1f2433';
@@ -1082,12 +1140,17 @@
   }
 
   function drawCity(c, now) {
+    // digambar relatif terhadap pusat kota (X, Y = 0) lalu diskalakan dengan UI
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.scale(UI, UI);
+    const X = 0, Y = 0;
     const r = SIZE_R[c.size], cap = SIZE_CAP[c.size];
     const age = S.t - c.born;
     if (age < 2.5 && S.started) {
       ctx.strokeStyle = `rgba(31,36,51,${1 - age / 2.5})`;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(c.x, c.y, r + age * 22, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(X, Y, r + age * 22, 0, Math.PI * 2); ctx.stroke();
     }
     // indikator kepadatan
     const fill = c.wait.length / cap;
@@ -1097,7 +1160,7 @@
       ctx.strokeStyle = over ? `rgba(214,64,69,${pulse})` : '#f0a202';
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.arc(c.x, c.y, r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, fill));
+      ctx.arc(X, Y, r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, fill));
       ctx.stroke();
     }
     // stasiun
@@ -1106,17 +1169,17 @@
     ctx.fillStyle = '#fff';
     ctx.strokeStyle = onSel ? L.color : '#1f2433';
     ctx.lineWidth = onSel ? 4.5 : 3;
-    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     if (c.size > 1) {
       ctx.fillStyle = '#1f2433';
-      ctx.beginPath(); ctx.arc(c.x, c.y, c.size === 2 ? 3 : 5.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(X, Y, c.size === 2 ? 3 : 5.5, 0, Math.PI * 2); ctx.fill();
     }
     if (S.building && L && L.stations.length) {
       const end = S.buildEnd === 'head' ? L.stations[0] : L.stations[L.stations.length - 1];
       if (end === c.id) {
         ctx.strokeStyle = L.color; ctx.lineWidth = 2;
         ctx.setLineDash([4, 4]);
-        ctx.beginPath(); ctx.arc(c.x, c.y, r + 11 + Math.sin(now * 5) * 2, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(X, Y, r + 11 + Math.sin(now * 5) * 2, 0, Math.PI * 2); ctx.stroke();
         ctx.setLineDash([]);
       }
     }
@@ -1127,40 +1190,45 @@
       const col = k % 6, row = Math.floor(k / 6);
       ctx.fillStyle = isFinite(D(c.id, p.dest)) ? '#3a4256' : '#e0565b';
       ctx.beginPath();
-      ctx.arc(c.x + r + 10 + col * 8, c.y - r + 4 + row * 8, 3, 0, Math.PI * 2);
+      ctx.arc(X + r + 10 + col * 8, Y - r + 4 + row * 8, 3, 0, Math.PI * 2);
       ctx.fill();
     }
     if (c.wait.length > 24) {
       ctx.fillStyle = '#d64045';
       ctx.font = '700 12px system-ui, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`+${c.wait.length - 24}`, c.x + r + 7, c.y - r + 4 + 4 * 8 + 5);
+      ctx.fillText(`+${c.wait.length - 24}`, X + r + 7, Y - r + 4 + 4 * 8 + 5);
     }
-    // nama kota
+    // nama kota (posisi label diatur per kota di geo.js supaya kota yang berdekatan tidak bertumpuk)
     ctx.font = '600 16px system-ui, sans-serif';
+    let lx = X, ly = Y + r + 20;
     ctx.textAlign = 'center';
+    if (c.label === 'top') ly = Y - r - 9;
+    else if (c.label === 'left') { lx = X - r - 6; ly = Y + 6; ctx.textAlign = 'right'; }
     ctx.lineWidth = 3.5;
     ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.strokeText(c.name, c.x, c.y + r + 20);
+    ctx.strokeText(c.name, lx, ly);
     ctx.fillStyle = '#1f2433';
-    ctx.fillText(c.name, c.x, c.y + r + 20);
+    ctx.fillText(c.name, lx, ly);
+    ctx.textAlign = 'center';
     // setelah kalah: tandai kota yang penuh supaya mudah ditemukan
     if (S.over && c.wait.length > cap) {
       const pulse = Math.sin(now * 5);
       ctx.strokeStyle = '#d64045';
       ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(c.x, c.y, r + 18 + pulse * 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(X, Y, r + 18 + pulse * 4, 0, Math.PI * 2); ctx.stroke();
       const label = `PENUH ${c.wait.length}/${cap}`;
       ctx.font = '800 13px system-ui, sans-serif';
       const w = ctx.measureText(label).width + 14;
-      const by = c.y - r - 40;
+      const by = Y - r - 40;
       ctx.fillStyle = '#d64045';
-      roundRect(c.x - w / 2, by - 11, w, 22, 11); ctx.fill();
+      roundRect(X - w / 2, by - 11, w, 22, 11); ctx.fill();
       ctx.fillStyle = '#fff';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, c.x, by + 1);
+      ctx.fillText(label, X, by + 1);
       ctx.textBaseline = 'alphabetic';
     }
+    ctx.restore();
   }
 
   // ================= Loop utama =================
@@ -1178,11 +1246,13 @@
     requestAnimationFrame(frame);
   }
 
+  TERRAIN = buildTerrain();
+  renderTerrain();
   newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, 1);
   const reached = Math.min(LAST_MAP, loadNum('map'));
   if (reached > 1) {
     $('b-continue').hidden = false;
-    $('b-continue').textContent = `Lanjut Peta ${reached} (${mapCities(reached)} kota)`;
+    $('b-continue').textContent = `Lanjut Peta ${reached}: ${levelTitle(reached)} (${mapCities(reached)} kota)`;
     $('b-start').classList.remove('primary');
   }
   const bests = [];
@@ -1192,5 +1262,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES };
 })();
