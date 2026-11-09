@@ -245,7 +245,8 @@ button.small { padding: 6px 12px; font-size: 13px; }
   .speed button { min-width: 32px; padding: 5px 6px; }
   #hud-bottom { padding-left: 12px; padding-right: 12px; gap: 4px; }
   #city-panel { width: 86vw; max-width: 340px; }
-  .chip { width: 34px; height: 34px; }
+  #chips { gap: 5px; }
+  .chip { width: 30px; height: 30px; font-size: 12px; border-width: 2px; }
   button { font-size: 12px; padding: 6px 9px; min-height: 32px; }
   /* panel jalur: satu baris yang bisa digeser ke samping, supaya peta tidak tertutup */
   #line-panel {

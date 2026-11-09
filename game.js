@@ -11,9 +11,10 @@
   const GW = W / CELL, GH = H / CELL;
   const LAND = 0, WATER = 1, MOUNT = 2, FOREIGN = 3;
 
-  const LINE_COLORS = ['#e63946', '#1f78d1', '#f0a202', '#2a9d4b', '#8e44ad', '#e0609a'];
-  const LINE_NAMES = ['Merah', 'Biru', 'Kuning', 'Hijau', 'Ungu', 'Merah Muda'];
-  const UNLOCK_AT = [0, 0, 0, 40, 120, 250]; // populasi negara yang dibutuhkan untuk membuka jalur
+  // 10 warna jalur/kereta: Maroon, Red, Pink, Yellow, Orange, Lime, DarkGreen, Skyblue, Navy, Violet
+  const LINE_COLORS = ['#8b1e3f', '#e63946', '#ec5fa8', '#e8b400', '#f37021', '#7cc21c', '#1e7a3a', '#3aa6e0', '#1f3a8a', '#8e44ad'];
+  const LINE_NAMES = ['Marun', 'Merah', 'Merah Muda', 'Kuning', 'Oranye', 'Hijau Muda', 'Hijau Tua', 'Biru Langit', 'Biru Dongker', 'Ungu'];
+  const UNLOCK_AT = [0, 0, 0, 40, 120, 250, 500, 1000, 2000, 4000]; // populasi negara yang dibutuhkan untuk membuka tiap jalur
 
   const DAY_LEN = 20;        // detik per hari permainan
   const TRAIN_SPEED = 110;   // px per detik (±1,2° per detik)
@@ -848,7 +849,7 @@
       }
       const slot = freeSlot();
       if (slot < 0) {
-        toast(S.unlocked < 6 ? 'Semua jalur terpakai. Tambah populasi negara untuk membuka jalur baru.' : 'Semua jalur sudah terpakai.', 'bad');
+        toast(S.unlocked < LINE_COLORS.length ? 'Semua jalur terpakai. Tambah populasi negara untuk membuka jalur baru.' : 'Semua jalur sudah terpakai.', 'bad');
         return;
       }
       const line = newLine(slot);
@@ -1002,7 +1003,7 @@
   function renderChips() {
     const box = $('chips');
     box.innerHTML = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < LINE_COLORS.length; i++) {
       const b = document.createElement('button');
       const L = S.lines.find((l) => l.id === i);
       b.className = 'chip';
