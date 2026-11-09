@@ -87,11 +87,17 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   | VII | Megapolitan | 512 | 2.520 kunjungan |
   | VIII | Kapital | 1024 | 5.080 kunjungan |
 
-  - Kampung tetap menghasilkan penumpang (60% dari laju normal). Karena kapasitasnya 0, penumpang pertama saja sudah membuatnya penuh dan kepuasan mulai turun, jadi kota baru perlu segera disambungkan. Level tidak turun lagi kalau jalurnya kemudian dibongkar.
+  - Kampung tetap menghasilkan penumpang (60% dari laju normal). Kapasitasnya tercatat 0, tetapi untuk perhitungan kepuasan Kampung dianggap berkapasitas maksimal (1024), jadi praktis tidak menurunkan kepuasan. Level tidak turun lagi kalau jalurnya kemudian dibongkar.
   - Kampung, Dusun, dan Desa: penumpang menunggu ditampilkan sebagai titik di samping kota.
   - Mulai Distrik: ditampilkan sebagai angka di dalam lingkaran (merah kalau melebihi kapasitas). Titik merah kecil di tepi lingkaran berarti ada penumpang yang tujuannya belum terjangkau.
 - **Jalur**: ada 10 jalur dengan warna Marun, Merah, Merah Muda, Kuning, Oranye, Hijau Muda, Hijau Tua, Biru Langit, Biru Dongker, dan Ungu. Sebuah jalur bisa dipakai kalau dua syarat terpenuhi: (1) peta: Peta 1 maksimal 4 jalur, tiap peta berikutnya +1, di Peta 7 kesepuluh jalur tersedia; (2) populasi negara: jalur ke-1 sampai ke-10 butuh 0, 0, 20, 40, 120, 250, 500, 1.000, 2.000, 4.000.
-- **Kalah**: kota yang terlalu penuh (lingkaran merah berkedip) menurunkan kepuasan. Kalau kepuasan habis, permainan selesai.
+- **Kepuasan & kalah**: kota yang penumpang menunggunya melebihi kapasitas (lingkaran merah berkedip) menurunkan kepuasan, dihitung dari rasio `menunggu ÷ kapasitas`:
+  - rasio ≤ 1 → tidak turun;
+  - rasio > 1 → turun `0,7 + 2 × (rasio − 1)` per detik, maksimal 3 per detik per kota (dijumlahkan untuk semua kota);
+  - contoh: Dusun 9/8 → 0,95/detik; Dusun 12/8 → 1,7/detik; Kapital 1034/1024 → 0,72/detik;
+  - Kampung dihitung dengan kapasitas 1024.
+
+  Setiap penumpang yang sampai di tujuan menambah kepuasan +0,6 (maksimal 100). Kalau kepuasan habis, permainan selesai.
 - **Daftar kota** (tombol "☰ Kota" di kanan atas): tabel `No | Lv | Kota | Tunggu/Kap | Pop.`, diurutkan dari persentase tunggu/kapasitas terbesar, lalu level tertinggi, lalu populasi terbesar. Level ditulis dengan kode pada tabel di atas (0 Kampung, I Dusun … VIII Kapital). Klik judul kolom untuk mengurutkan berdasarkan kolom itu (klik lagi untuk membalik arah, ▲ naik / ▼ turun); klik "No" untuk kembali ke urutan bawaan. Baris kuning = lebih dari 50% kapasitas, merah = melebihi kapasitas. Klik baris untuk menggeser peta ke kota itu. Di layar lebar panel ini terbuka di samping peta; di HP panel tertutup sampai tombolnya diketuk.
 - **Daftar jalur** (tombol "☰ Jalur" di sebelah tombol Kota; panel yang sama, berganti isi): tabel `No | Jalur | Kota | Jarak | Kereta | Gerbong | Okupansi`. Kota = jumlah stasiun, Jarak = panjang rel (km, 1° ≈ 111 km), Gerbong = gerbong per kereta (1 bawaan + yang dibeli), Okupansi = persentase penumpang di dalam semua kereta jalur itu dibanding total kapasitasnya saat ini. Klik judul kolom untuk mengurutkan (klik lagi untuk membalik arah; "No" = urutan warna jalur). Klik baris untuk memilih jalur. Klik tombol yang sedang aktif untuk menutup panel.
 

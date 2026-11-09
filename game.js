@@ -36,6 +36,9 @@
   const HOLD_RATIO = 0.9;    // kereta menahan diri kalau jarak ke kereta depan < 90% jarak ideal
   const DAY_GROWTH = 0.03;   // laju penumpang naik 3% (dari laju dasar) per hari
   const DAY_MULT_MAX = 2;    // ...tapi paling tinggi 2× laju dasar
+  const DRAIN_BASE = 0.7;      // kepuasan turun minimal 0,7/detik begitu kota melebihi kapasitas
+  const DRAIN_PER_RATIO = 2;   // ...ditambah 2/detik untuk setiap kelipatan kapasitas yang terlampaui
+  const DRAIN_MAX = 3;         // ...maksimal 3/detik per kota
   const MAX_HOLD = 2;       // lama menahan diri maksimal per pemberhentian (detik)
   const TRAIN_COST = 400;
   const CAP_COST = 250;
@@ -330,6 +333,17 @@
   function fillRatio(c) {
     const cap = SIZE_CAP[c.size], n = c.wait.length;
     return cap ? n / cap : n ? 1000 + n : 0;
+  }
+
+  /**
+   * Penurunan kepuasan per detik oleh satu kota, berdasarkan rasio menunggu ÷ kapasitas:
+   *   rasio ≤ 1 → 0;  rasio > 1 → 0,7 + 2 × (rasio − 1), maksimal 3.
+   * Kampung (kapasitas 0) dihitung dengan kapasitas maksimal (1024).
+   */
+  function satisfactionDrain(c) {
+    const cap = c.size === 0 ? SIZE_CAP[MAX_LEVEL] : SIZE_CAP[c.size];
+    const ratio = c.wait.length / cap;
+    return ratio > 1 ? Math.min(DRAIN_MAX, DRAIN_BASE + DRAIN_PER_RATIO * (ratio - 1)) : 0;
   }
 
   function spawnPassenger(city) {
@@ -651,10 +665,10 @@
         c.acc += rate * dt;
         while (c.acc >= 1) { c.acc -= 1; spawnPassenger(c); }
       }
-      const cap = SIZE_CAP[c.size];
-      if (c.wait.length > cap) {
+      const drain = satisfactionDrain(c);
+      if (drain > 0) {
         c.overT += dt;
-        if (!S.relaxed) S.satisfaction -= Math.min(3, 0.7 + 0.25 * (c.wait.length - cap)) * dt;
+        if (!S.relaxed) S.satisfaction -= drain * dt;
       } else {
         c.overT = Math.max(0, c.overT - dt * 2);
       }
@@ -739,8 +753,8 @@
   function gameOver() {
     S.satisfaction = 0;
     S.over = true;
-    const excess = (c) => c.wait.length - SIZE_CAP[c.size];
-    const full = S.cities.filter((c) => excess(c) > 0).sort((a, b) => excess(b) - excess(a));
+    // kota yang ikut menurunkan kepuasan, dari yang paling parah
+    const full = S.cities.filter((c) => satisfactionDrain(c) > 0).sort((a, b) => satisfactionDrain(b) - satisfactionDrain(a));
     const best = recordBest(S.level, S.population);
     const names = full.slice(0, 4).map((c) => `${c.name} (${c.wait.length}/${SIZE_CAP[c.size]})`).join(', ');
     showResult({
@@ -1614,7 +1628,7 @@
       ctx.beginPath(); ctx.arc(X, Y, r + 12 + 10 * (1 - k), 0, Math.PI * 2); ctx.stroke();
     }
     // setelah kalah: tandai kota yang penuh supaya mudah ditemukan
-    if (S.over && c.wait.length > cap) {
+    if (S.over && satisfactionDrain(c) > 0) {
       const pulse = Math.sin(now * 5);
       ctx.strokeStyle = '#d64045';
       ctx.lineWidth = 3;
@@ -1665,5 +1679,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain };
 })();
