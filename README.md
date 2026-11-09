@@ -39,6 +39,8 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
   - Kereta baru selalu muncul di **kota pertama** dalam urutan itu (depo) dan berangkat ke arah **kota kedua**. Panel jalur menampilkannya, misalnya "depo Medan → Pekanbaru".
   - Kalau sebuah kota dilepas dengan "Potong awal/akhir", kota itu keluar dari urutan dan depo serta arah mengikuti kota berikutnya dalam urutan.
 - **Penumpang** muncul di tiap kota dengan tujuan kota lain. Mereka otomatis mencari rute terpendek, termasuk transit antar-jalur.
+  - Tujuan dipilih acak berbobot: `ukuran kota tujuan × faktor kepadatan ÷ (1 + jarak/500)`. Kota besar dan dekat lebih sering dituju.
+  - Faktor kepadatan = 1 selama penumpang yang menunggu di kota tujuan ≤ kapasitas. Kalau melebihi, faktornya `(kapasitas ÷ menunggu)²`: kota yang penuh 1,5× kapasitas hanya 44% diminati, 2× hanya 25%. Tooltip kota menampilkan angka ini.
   - Titik gelap: penumpang yang sudah punya rute.
   - Titik merah: tujuannya belum terhubung ke jaringan.
 - **Pendapatan**: tarif = $10 + $5 × jumlah stasiun yang dilewati. Biaya perawatan $20 per kereta per hari.

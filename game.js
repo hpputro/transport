@@ -252,11 +252,21 @@
     return [first, ...near, ...pool.filter((c) => c !== first && !near.includes(c))];
   }
 
+  /**
+   * Daya tarik kota sebagai tujuan berdasarkan kepadatannya: 1 selama penumpang menunggu ≤ kapasitas,
+   * lalu turun dengan (kapasitas / menunggu)² saat kelebihan (1,5× kapasitas → 44%, 2× → 25%).
+   */
+  function crowdFactor(c) {
+    const cap = SIZE_CAP[c.size], n = c.wait.length;
+    return n <= cap ? 1 : (cap / n) ** 2;
+  }
+
   function spawnPassenger(city) {
     const others = S.cities.filter((c) => c !== city);
     if (!others.length) return;
     let tot = 0;
-    const w = others.map((c) => { const v = c.size / (1 + dist(c, city) / 500); tot += v; return v; });
+    // bobot tujuan = ukuran kota × faktor kepadatan ÷ (1 + jarak/500)
+    const w = others.map((c) => { const v = (c.size * crowdFactor(c)) / (1 + dist(c, city) / 500); tot += v; return v; });
     let r = S.rng() * tot, k = 0;
     while (k < w.length - 1 && r > w[k]) { r -= w[k]; k++; }
     city.wait.push({ dest: others[k].id, hops: 0 });
@@ -988,7 +998,9 @@
     const growth = c.size < 3
       ? `\nMenuju ${SIZE_NAME[c.size + 1].toLowerCase()}: ${c.growth}/${GROW_AT[c.size]} penumpang tiba`
       : `\nUkuran maksimal (${c.growth} penumpang tiba)`;
+    const appeal = crowdFactor(c);
     tip.textContent = `${c.name} · ${SIZE_NAME[c.size]}${growth}\nMenunggu: ${c.wait.length}/${cap}` +
+      (appeal < 1 ? `\nTerlalu padat: minat dikunjungi ${Math.round(appeal * 100)}%` : '') +
       (noRoute ? `\nBelum ada rute: ${noRoute}` : '') +
       (top ? `\nTujuan: ${top}` : '') +
       `\nJalur: ${lines || 'belum terhubung'}`;
@@ -1271,5 +1283,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger };
 })();
