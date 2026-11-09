@@ -28,10 +28,14 @@
   const MAX_ZOOM = 6;        // zoom maksimal relatif terhadap tampilan seluruh wilayah
   const MIN_ZOOM = 0.75;     // sedikit di bawah 1 supaya skala bisa dipertahankan saat panel bawah membesar/mengecil
   const LAST_MAP = GEO.LEVEL_REGIONS.length; // peta 1 = Sumatra, tiap peta menambah satu wilayah
-  const SIZE_CAP = [0, 8, 12, 16];
-  const SIZE_R = [0, 13, 16, 20];
-  const SIZE_NAME = ['', 'Kota kecil', 'Kota sedang', 'Kota besar'];
-  const GROW_AT = [0, 40, 120];
+  // Level kota 1..8: kapasitas berlipat dua tiap level; hanya ukuran lingkaran yang membedakan di peta
+  const SIZE_NAME = ['', 'Kampung', 'Desa', 'Distrik', 'Kota Kecil', 'Kota Besar', 'Metropolitan', 'Megapolitan', 'Kapital'];
+  const SIZE_CAP = [0, 8, 16, 32, 64, 128, 256, 512, 1024];
+  const SIZE_R = [0, 10, 12.5, 15, 17.5, 20, 22.5, 25, 27.5];
+  const MAX_LEVEL = SIZE_NAME.length - 1;
+  // total kunjungan untuk naik dari level i ke i+1 (selisih antarlevel = 5 × kapasitas level itu)
+  const GROW_AT = [0, 40, 120, 280, 600, 1240, 2520, 5080];
+  const NUMBER_FROM = 3;     // mulai Distrik, penumpang menunggu ditampilkan sebagai angka di dalam lingkaran
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
@@ -433,7 +437,7 @@
   /** Kunjungan = penumpang yang turun di kota ini (sampai tujuan atau transit). Jadi syarat naik level. */
   function addVisit(city) {
     city.visits++;
-    if (city.size < 3 && city.visits >= GROW_AT[city.size]) {
+    if (city.size < MAX_LEVEL && city.visits >= GROW_AT[city.size]) {
       city.size++;
       toast(`${city.name} berkembang menjadi ${SIZE_NAME[city.size].toLowerCase()}!`, 'good');
     }
@@ -1012,9 +1016,9 @@
     const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3)
       .map(([id, n]) => `${S.cities[id].name} (${n})`).join(', ');
     const lines = S.lines.filter((l) => l.stations.includes(c.id)).map((l) => l.name).join(', ');
-    const visits = c.size < 3
+    const visits = c.size < MAX_LEVEL
       ? `\nDikunjungi: ${c.visits}/${GROW_AT[c.size]} menuju ${SIZE_NAME[c.size + 1].toLowerCase()}`
-      : `\nDikunjungi: ${c.visits} (ukuran maksimal)`;
+      : `\nDikunjungi: ${c.visits} (level tertinggi)`;
     const appeal = crowdFactor(c);
     tip.textContent = `${c.name} · ${SIZE_NAME[c.size]}\nPopulasi: ${c.pop}${visits}\nMenunggu: ${c.wait.length}/${cap}` +
       (appeal < 1 ? `\nTerlalu padat: minat dikunjungi ${Math.round(appeal * 100)}%` : '') +
@@ -1218,10 +1222,6 @@
     ctx.strokeStyle = onSel ? L.color : '#1f2433';
     ctx.lineWidth = onSel ? 4.5 : 3;
     ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    if (c.size > 1) {
-      ctx.fillStyle = '#1f2433';
-      ctx.beginPath(); ctx.arc(X, Y, c.size === 2 ? 3 : 5.5, 0, Math.PI * 2); ctx.fill();
-    }
     if (S.building && L && L.stations.length) {
       const end = S.buildEnd === 'head' ? L.stations[0] : L.stations[L.stations.length - 1];
       if (end === c.id) {
@@ -1232,20 +1232,39 @@
       }
     }
     // penumpang menunggu
-    const shown = Math.min(c.wait.length, 24);
-    for (let k = 0; k < shown; k++) {
-      const p = c.wait[k];
-      const col = k % 6, row = Math.floor(k / 6);
-      ctx.fillStyle = isFinite(D(c.id, p.dest)) ? '#3a4256' : '#e0565b';
-      ctx.beginPath();
-      ctx.arc(X + r + 10 + col * 8, Y - r + 4 + row * 8, 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    if (c.wait.length > 24) {
-      ctx.fillStyle = '#d64045';
-      ctx.font = '700 12px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`+${c.wait.length - 24}`, X + r + 7, Y - r + 4 + 4 * 8 + 5);
+    if (c.size >= NUMBER_FROM) {
+      // Distrik ke atas: jumlah penumpang menunggu sebagai angka di dalam lingkaran (merah kalau melebihi kapasitas)
+      const n = c.wait.length, label = String(n);
+      const fs = Math.min(r * 0.95, (2 * r - 6) / (label.length * 0.62));
+      ctx.font = `800 ${fs}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = n > cap ? '#d64045' : n ? '#1f2433' : '#a3aab8';
+      ctx.fillText(label, X, Y + 1);
+      ctx.textBaseline = 'alphabetic';
+      // titik merah kecil di tepi lingkaran: ada penumpang yang tujuannya belum terjangkau
+      if (c.wait.some((p) => !isFinite(D(c.id, p.dest)))) {
+        ctx.fillStyle = '#e0565b';
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(X + r * 0.72, Y - r * 0.72, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+    } else {
+      // Kampung & Desa: satu titik per penumpang di samping lingkaran
+      const shown = Math.min(c.wait.length, 24);
+      for (let k = 0; k < shown; k++) {
+        const p = c.wait[k];
+        const col = k % 6, row = Math.floor(k / 6);
+        ctx.fillStyle = isFinite(D(c.id, p.dest)) ? '#3a4256' : '#e0565b';
+        ctx.beginPath();
+        ctx.arc(X + r + 10 + col * 8, Y - r + 4 + row * 8, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (c.wait.length > 24) {
+        ctx.fillStyle = '#d64045';
+        ctx.font = '700 12px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`+${c.wait.length - 24}`, X + r + 7, Y - r + 4 + 4 * 8 + 5);
+      }
     }
     // nama kota (posisi label diatur per kota di geo.js supaya kota yang berdekatan tidak bertumpuk)
     ctx.font = '600 16px system-ui, sans-serif';

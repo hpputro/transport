@@ -45,8 +45,23 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
   - Titik merah: tujuannya belum terhubung ke jaringan.
 - **Pendapatan**: tarif = $10 + $5 × jumlah stasiun yang dilewati. Biaya perawatan $20 per kereta per hari.
 - **Status kota** (tampil di tooltip kota):
-  - **Dikunjungi**: jumlah penumpang yang turun di kota itu, baik yang sampai tujuan maupun yang transit pindah jalur. Penumpang yang hanya lewat di dalam kereta tidak dihitung. Ini syarat naik level: 40 kunjungan menjadi kota sedang, 120 menjadi kota besar. Kota besar menampung lebih banyak orang, tetapi juga menghasilkan lebih banyak penumpang. Kota transit yang ramai naik level lebih cepat.
+  - **Dikunjungi**: jumlah penumpang yang turun di kota itu, baik yang sampai tujuan maupun yang transit pindah jalur. Penumpang yang hanya lewat di dalam kereta tidak dihitung. Ini syarat naik level (lihat tabel di bawah). Kota transit yang ramai naik level lebih cepat.
   - **Populasi**: jumlah penumpang yang diantar ke kota itu sebagai tujuan akhir. Populasi semua kota dijumlahkan menjadi **populasi negara** (HUD atas), yang jadi skor permainan.
+- **Level kota**: makin tinggi level, makin besar kapasitas, tetapi kota juga menghasilkan lebih banyak penumpang. Di peta, level hanya dibedakan dari ukuran lingkaran.
+
+  | Level | Kapasitas | Total kunjungan untuk mencapainya |
+  |---|---|---|
+  | Kampung | 8 | (awal) |
+  | Desa | 16 | 40 |
+  | Distrik | 32 | 120 |
+  | Kota Kecil | 64 | 280 |
+  | Kota Besar | 128 | 600 |
+  | Metropolitan | 256 | 1.240 |
+  | Megapolitan | 512 | 2.520 |
+  | Kapital | 1024 | 5.080 |
+
+  - Kampung dan Desa: penumpang menunggu ditampilkan sebagai titik di samping kota.
+  - Mulai Distrik: ditampilkan sebagai angka di dalam lingkaran (merah kalau melebihi kapasitas). Titik merah kecil di tepi lingkaran berarti ada penumpang yang tujuannya belum terjangkau.
 - **Jalur baru** terbuka setelah populasi negara mencapai 40, 120, dan 250.
 - **Kalah**: kota yang terlalu penuh (lingkaran merah berkedip) menurunkan kepuasan. Kalau kepuasan habis, permainan selesai.
 
