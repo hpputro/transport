@@ -694,6 +694,8 @@
   /** Tampilkan panel hasil di bawah layar (peta tetap terlihat dan bisa digeser/zoom). */
   function showResult({ title, kind, reason, stats, actions }) {
     S.building = false;
+    pruneStubLines();
+    renderChips();
     $('toasts').innerHTML = '';
     $('res-title').textContent = title;
     $('res-title').className = kind;
@@ -819,14 +821,24 @@
   }
 
   function stopBuilding() {
-    const L = S.selected;
     S.building = false;
-    if (L && L.stations.length < 2) { deleteLine(L); S.selected = null; }
-    refreshUi();
+    refreshUi(); // refreshUi membersihkan jalur yang belum punya 2 kota
+  }
+
+  /**
+   * Hapus jalur "setengah jadi" (kurang dari 2 kota) yang tidak sedang dibangun.
+   * Jalur seperti ini tidak punya kereta dan tidak punya panel tombol, jadi tidak boleh tertinggal.
+   */
+  function pruneStubLines() {
+    for (const L of S.lines.slice()) {
+      if (L.stations.length >= 2 || (S.building && S.selected === L)) continue;
+      deleteLine(L);
+    }
   }
 
   function selectLine(L) {
-    if (S.building && S.selected !== L) stopBuilding();
+    if (S.building) stopBuilding();           // selesaikan pembangunan dulu (juga kalau L = jalur yang sedang dibangun)
+    if (L && !S.lines.includes(L)) L = null;  // jalur itu ternyata setengah jadi dan sudah dihapus
     S.selected = L;
     S.building = false;
     refreshUi();
@@ -1108,6 +1120,7 @@
   }
 
   function refreshUi() {
+    pruneStubLines();
     renderChips();
     updatePanel();
     updateHint();
