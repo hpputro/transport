@@ -17,6 +17,9 @@
 
   const DAY_LEN = 20;        // detik per hari permainan
   const TRAIN_SPEED = 110;   // px per detik (±1,2° per detik)
+  const DWELL = 0.5;         // lama berhenti di stasiun (tetap, tidak tergantung jumlah penumpang)
+  const HOLD_RATIO = 0.9;    // kereta menahan diri kalau jarak ke kereta depan < 90% jarak ideal
+  const MAX_HOLD = 5;        // lama menahan diri maksimal per pemberhentian (detik)
   const TRAIN_COST = 400;
   const CAP_COST = 250;
   const CAP_STEP = 4;
@@ -498,12 +501,42 @@
     if (S.particles.length < 40) S.particles.push({ x: city.x, y: city.y - 18, text: `+$${fare}`, life: 1.2, color: '#1e7a3a' });
   }
 
+  /** Posisi kereta dalam satu putaran pulang-pergi jalurnya (0 = stasiun awal, berangkat maju). */
+  function cyclePos(tr, segs, total) {
+    const before = segs.slice(0, tr.i).reduce((a, b) => a + b, 0);
+    return tr.dir > 0 ? before + tr.prog : 2 * total - before + tr.prog;
+  }
+
+  /** Jarak ke kereta di depannya pada jalur yang sama, sebagai bagian dari satu putaran (0..1). */
+  function gapAhead(tr) {
+    const L = tr.line, st = L.stations;
+    if (L.trains.length < 2) return 1;
+    const segs = [];
+    for (let k = 0; k + 1 < st.length; k++) segs.push(dist(S.cities[st[k]], S.cities[st[k + 1]]));
+    const total = segs.reduce((a, b) => a + b, 0), cyc = 2 * total;
+    const me = cyclePos(tr, segs, total), myIdx = L.trains.indexOf(tr);
+    let best = cyc;
+    L.trains.forEach((o, k) => {
+      if (o === tr) return;
+      let d = (((cyclePos(o, segs, total) - me) % cyc) + cyc) % cyc;
+      if (d === 0 && k > myIdx) d = cyc; // posisi sama persis: kereta dengan urutan lebih awal dianggap di depan
+      best = Math.min(best, d);
+    });
+    return best / cyc;
+  }
+
   function updateTrain(tr, dt) {
     const st = tr.line.stations;
     if (st.length < 2) return;
     if (tr.state === 'dwell') {
       tr.dwellT -= dt;
-      if (tr.dwellT <= 0) tr.state = 'move';
+      if (tr.dwellT > 0) return;
+      // terlalu dekat dengan kereta di depan → tunggu sebentar di stasiun supaya jarak antarkereta merata
+      const ideal = 1 / tr.line.trains.length;
+      if ((tr.holdT || 0) < MAX_HOLD && gapAhead(tr) < HOLD_RATIO * ideal) { tr.holdT = (tr.holdT || 0) + dt; return; }
+      if (tr.holdT) serve(tr, st[tr.i]); // naikkan penumpang yang datang selama menunggu
+      tr.holdT = 0;
+      tr.state = 'move';
       return;
     }
     const A = S.cities[st[tr.i]], B = S.cities[st[tr.i + tr.dir]];
@@ -513,9 +546,10 @@
       tr.prog = 0;
       if (tr.i + tr.dir < 0 || tr.i + tr.dir >= st.length) tr.dir = -tr.dir;
       for (const p of tr.pax) p.hops++;
-      const moved = serve(tr, st[tr.i]);
+      serve(tr, st[tr.i]);
       tr.state = 'dwell';
-      tr.dwellT = 0.35 + 0.07 * moved;
+      tr.dwellT = DWELL;
+      tr.holdT = 0;
     }
   }
 
