@@ -12,15 +12,15 @@ Buka `index.html` di browser. Tidak perlu instalasi atau server.
 
 Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul bertahap di posisi geografisnya. Kalau semua kota yang sudah ada telah tersambung, kota berikutnya muncul lebih cepat.
 
-| Peta | Wilayah baru | Jumlah kota | Kas awal |
-|---|---|---|---|
-| 1 | Sumatra | 10 | $1500 |
-| 2 | + Jawa | 16 | $2500 |
-| 3 | + Sulawesi | 22 | $3500 |
-| 4 | + Papua | 28 | $4500 |
-| 5 | + Kalimantan | 33 | $5500 |
-| 6 | + Bali & Nusa Tenggara | 36 | $6500 |
-| 7 | + Maluku | 38 (semua) | $7500 |
+| Peta | Wilayah baru | Jumlah kota | Jalur tersedia | Kas awal |
+|---|---|---|---|---|
+| 1 | Sumatra | 10 | 4 | $1500 |
+| 2 | + Jawa | 16 | 5 | $2500 |
+| 3 | + Sulawesi | 22 | 6 | $3500 |
+| 4 | + Papua | 28 | 7 | $4500 |
+| 5 | + Kalimantan | 33 | 8 | $5500 |
+| 6 | + Bali & Nusa Tenggara | 36 | 9 | $6500 |
+| 7 | + Maluku | 38 (semua) | 10 (semua) | $7500 |
 
 **Urutan munculnya kota**
 - Setiap peta dimulai di wilayah yang baru ditambahkan: kota pertama acak, lalu kota terdekat di pulau yang sama, sampai 3 kota. Peta 7 dimulai dengan 2 kota karena Maluku hanya punya 2 ibu kota.
