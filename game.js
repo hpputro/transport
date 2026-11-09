@@ -14,9 +14,21 @@
   // 10 warna jalur/kereta: Maroon, Red, Pink, Yellow, Orange, Lime, DarkGreen, Skyblue, Navy, Violet
   const LINE_COLORS = ['#8b1e3f', '#e63946', '#ec5fa8', '#e8b400', '#f37021', '#7cc21c', '#1e7a3a', '#3aa6e0', '#1f3a8a', '#8e44ad'];
   const LINE_NAMES = ['Marun', 'Merah', 'Merah Muda', 'Kuning', 'Oranye', 'Hijau Muda', 'Hijau Tua', 'Biru Langit', 'Biru Dongker', 'Ungu'];
-  // jumlah jalur yang tersedia per peta: Peta 1 = 4 jalur, tiap peta +1, Peta 7 = semua (10)
+  // Sebuah jalur bisa dipakai kalau DUA syarat terpenuhi:
+  //  1. peta: Peta 1 = maks. 4 jalur, tiap peta +1, Peta 7 = semua (10)
+  //  2. populasi negara: jalur ke-(i+1) butuh UNLOCK_AT[i]
+  const UNLOCK_AT = [0, 0, 20, 40, 120, 250, 500, 1000, 2000, 4000];
   const linesForLevel = (level) => Math.min(LINE_COLORS.length, 3 + level);
   const levelForLine = (i) => Math.max(1, i - 2); // jalur ke-(i+1) tersedia mulai peta ini
+  const availableLines = () => {
+    let n = 0;
+    while (n < linesForLevel(S.level) && S.population >= UNLOCK_AT[n]) n++;
+    return n;
+  };
+  /** Alasan jalur ke-(i+1) belum bisa dipakai. */
+  const lockReason = (i) => (i >= linesForLevel(S.level)
+    ? `Jalur ${LINE_NAMES[i]} tersedia mulai Peta ${levelForLine(i)}`
+    : `Jalur ${LINE_NAMES[i]} terbuka setelah populasi negara ${UNLOCK_AT[i]}`);
 
   const DAY_LEN = 20;        // detik per hari permainan
   const TRAIN_SPEED = 110;   // px per detik (±1,2° per detik)
@@ -597,7 +609,7 @@
       cities: [], lines: [], trains: [], dist: [], segMap: new Map(), connected: [], largest: 0,
       nextCityAt: 14, speed: 1, paused: false, started: false, over: false,
       won: false, winChoice: false, relaxed: false,
-      selected: null, building: false, buildEnd: 'tail', unlocked: linesForLevel(level),
+      selected: null, building: false, buildEnd: 'tail', unlocked: 2, // jalur yang bisa dipakai (diperbarui di update)
       particles: [],
     };
     S.remaining = levelCities(level).slice(); // kota peta ini yang belum muncul
@@ -651,6 +663,12 @@
     for (const p of S.particles) { p.life -= dt; p.y -= 14 * dt; }
     S.particles = S.particles.filter((p) => p.life > 0);
 
+    const unlocked = availableLines();
+    if (unlocked > S.unlocked) {
+      S.unlocked = unlocked;
+      toast(`Jalur ${LINE_NAMES[unlocked - 1]} terbuka!`, 'good');
+      renderChips();
+    }
     if (S.relaxed) S.satisfaction = 100;
     if (!S.won && S.cities.length >= S.target && S.largest === S.cities.length) win();
     else if (S.satisfaction <= 0) gameOver();
@@ -845,7 +863,7 @@
       }
       const slot = freeSlot();
       if (slot < 0) {
-        toast(S.unlocked < LINE_COLORS.length ? `Semua ${S.unlocked} jalur di peta ini terpakai. Jalur tambahan tersedia di peta berikutnya.` : 'Semua jalur sudah terpakai.', 'bad');
+        toast(S.unlocked < LINE_COLORS.length ? `Semua jalur terpakai. ${lockReason(S.unlocked)}.` : 'Semua jalur sudah terpakai.', 'bad');
         return;
       }
       const line = newLine(slot);
@@ -1008,7 +1026,7 @@
       if (i >= S.unlocked) {
         b.classList.add('locked');
         b.textContent = '🔒';
-        b.title = `Jalur ${LINE_NAMES[i]} tersedia mulai Peta ${levelForLine(i)}`;
+        b.title = lockReason(i);
       } else if (!L) {
         b.classList.add('free');
         b.textContent = '+';
@@ -1020,7 +1038,7 @@
       if (S.selected && S.selected.id === i) b.classList.add('sel');
       b.addEventListener('click', () => {
         if (blocked()) return;
-        if (i >= S.unlocked) { toast(`Jalur ${LINE_NAMES[i]} tersedia mulai Peta ${levelForLine(i)}`); return; }
+        if (i >= S.unlocked) { toast(lockReason(i)); return; }
         const cur = S.lines.find((l) => l.id === i);
         if (cur) { selectLine(S.selected === cur && !S.building ? null : cur); return; }
         if (S.building) stopBuilding();
