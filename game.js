@@ -42,9 +42,11 @@
   const MAX_HOLD = 2;       // lama menahan diri maksimal per pemberhentian (detik)
   const TRAIN_COST = 400;
   const CAP_COST = 250;
-  const CAP_STEP = 4;
-  const BASE_CAP = 6, MAX_CAP = 18;
-  const MAX_TRAINS = 4;
+  // muatan satu kereta per level gerbong (level 1 = bawaan, beli "+ Gerbong" untuk naik level)
+  const CAR_CAP = [0, 6, 10, 14, 18, 21];
+  const MAX_CAR = CAR_CAP.length - 1;
+  const BASE_CAP = CAR_CAP[1];
+  const KM_PER_TRAIN = 500; // jumlah kereta maksimal per jalur = panjang jalur (km) ÷ 500, minimal 1
   const UPKEEP = 20;         // perawatan harian: $20 per kereta
   const UPKEEP_PER_SEAT = 2; // ...+ $2 per kursi (kapasitas) kereta
   const UPKEEP_PER_KM = 0.01; // ...+ panjang jalur (km) ÷ 100
@@ -499,7 +501,7 @@
   // ================= Jalur & kereta =================
   function newLine(slot) {
     // stations = urutan stasiun di sepanjang jalur; order = urutan kota saat jalur dibuat (untuk depo & arah kereta)
-    const L = { id: slot, color: LINE_COLORS[slot], name: LINE_NAMES[slot], stations: [], order: [], segCosts: [], trains: [], cap: BASE_CAP };
+    const L = { id: slot, color: LINE_COLORS[slot], name: LINE_NAMES[slot], stations: [], order: [], segCosts: [], trains: [], car: 1, cap: BASE_CAP };
     S.lines.push(L);
     S.lines.sort((a, b) => a.id - b.id);
     S.selected = L;
@@ -510,7 +512,7 @@
 
   // Harga naik 1,5× setiap kali membeli, dihitung per jalur.
   const trainPrice = (L) => Math.round(TRAIN_COST * PRICE_GROWTH ** L.trains.length);
-  const capPrice = (L) => Math.round(CAP_COST * PRICE_GROWTH ** ((L.cap - BASE_CAP) / CAP_STEP));
+  const capPrice = (L) => Math.round(CAP_COST * PRICE_GROWTH ** (L.car - 1));
 
   /** Panjang rel sebuah jalur dalam km (1° ≈ 111 km). */
   function lineKm(L) {
@@ -518,6 +520,9 @@
     for (let s = 0; s + 1 < L.stations.length; s++) len += dist(S.cities[L.stations[s]], S.cities[L.stations[s + 1]]);
     return (len / PX_PER_DEG) * 111;
   }
+
+  /** Jumlah kereta maksimal sebuah jalur: 1 kereta per 500 km rel (dibulatkan ke bawah), minimal 1. */
+  const maxTrains = (L) => Math.max(1, Math.floor(lineKm(L) / KM_PER_TRAIN));
 
   /**
    * Biaya perawatan harian:
@@ -532,7 +537,8 @@
 
   function addTrain(L) {
     if (L.stations.length < 2) return;
-    if (L.trains.length >= MAX_TRAINS) { toast(`Jalur ${L.name} sudah punya ${MAX_TRAINS} kereta`, 'bad'); return; }
+    const max = maxTrains(L);
+    if (L.trains.length >= max) { toast(`Jalur ${L.name} maks ${max} kereta (1 kereta per ${KM_PER_TRAIN} km)`, 'bad'); return; }
     const price = trainPrice(L);
     if (S.money < price) { toast(`Kas tidak cukup (butuh $${price})`, 'bad'); return; }
     S.money -= price;
@@ -546,12 +552,13 @@
   }
 
   function upgradeCap(L) {
-    if (L.cap >= MAX_CAP) return;
+    if (L.car >= MAX_CAR) return;
     const price = capPrice(L);
     if (S.money < price) { toast(`Kas tidak cukup (butuh $${price})`, 'bad'); return; }
     S.money -= price;
     L.spent = (L.spent || 0) + price;
-    L.cap += CAP_STEP;
+    L.car++;
+    L.cap = CAR_CAP[L.car];
     toast(`Kereta jalur ${L.name} kini muat ${L.cap} penumpang`, 'good');
   }
 
@@ -588,7 +595,28 @@
     L.order = L.order.filter((id) => id !== removedId);
     recomputeNetwork();
     fixTrains(L);
-    toast(`Stasiun ${removed} dilepas dari jalur ${L.name}, kembali $${refund}`);
+    const cut = dropExtraTrains(L);
+    toast(`Stasiun ${removed} dilepas dari jalur ${L.name}, kembali $${refund + cut.refund}` +
+      (cut.n ? ` · ${cut.n} kereta ikut dibongkar (jalur kini maks ${maxTrains(L)} kereta)` : ''));
+  }
+
+  /**
+   * Kalau jalur memendek sampai jumlah keretanya melebihi batas, kereta terakhir yang dibeli dibongkar.
+   * Penumpangnya turun di stasiun tempat kereta itu berada; uang kembali 50% dari harga beli kereta itu.
+   */
+  function dropExtraTrains(L) {
+    let n = 0, refund = 0;
+    while (L.trains.length > maxTrains(L)) {
+      const tr = L.trains.pop();
+      S.trains = S.trains.filter((t) => t !== tr);
+      S.cities[L.stations[clamp(tr.i, 0, L.stations.length - 1)]].wait.push(...tr.pax);
+      const paid = trainPrice(L); // harga saat kereta ini dibeli (jumlah kereta sebelumnya = sekarang)
+      L.spent = Math.max(0, (L.spent || 0) - paid);
+      refund += Math.round(paid * 0.5);
+      n++;
+    }
+    S.money += refund;
+    return { n, refund };
   }
 
   function deleteLine(L) {
@@ -1221,14 +1249,18 @@
     $('lp-name').textContent = `Jalur ${L.name}`;
     $('lp-name').style.color = L.color;
     const depo = S.cities[L.order[0]].name, next = S.cities[L.order[1]].name;
-    $('lp-info').textContent = `${L.trains.length} kereta · muat ${L.cap}`;
-    $('b-train').title = `Kereta baru muncul di ${depo}, berangkat ke arah ${next}`;
+    const maxT = maxTrains(L);
+    $('lp-info').textContent = `${L.trains.length}/${maxT} kereta · muat ${L.cap}`;
+    $('b-train').title = L.trains.length >= maxT
+      ? `Maks ${maxT} kereta: 1 kereta per ${KM_PER_TRAIN} km rel (jalur ini ${Math.round(lineKm(L)).toLocaleString('id-ID')} km). Perpanjang jalur untuk menambah batas.`
+      : `Kereta baru muncul di ${depo}, berangkat ke arah ${next}`;
     $('b-extend').classList.toggle('active', S.building);
     const tp = trainPrice(L), cp = capPrice(L);
-    $('b-train').textContent = L.trains.length >= MAX_TRAINS ? 'Kereta maks' : `+ Kereta ($${tp})`;
-    $('b-train').disabled = L.trains.length >= MAX_TRAINS || S.money < tp;
-    $('b-cap').textContent = L.cap >= MAX_CAP ? 'Gerbong maks' : `+ Gerbong ($${cp})`;
-    $('b-cap').disabled = L.cap >= MAX_CAP || S.money < cp;
+    $('b-train').textContent = L.trains.length >= maxT ? 'Kereta maks' : `+ Kereta ($${tp})`;
+    $('b-train').disabled = L.trains.length >= maxT || S.money < tp;
+    $('b-cap').textContent = L.car >= MAX_CAR ? 'Gerbong maks' : `+ Gerbong ($${cp})`;
+    $('b-cap').disabled = L.car >= MAX_CAR || S.money < cp;
+    $('b-cap').title = L.car >= MAX_CAR ? `Gerbong level ${MAX_CAR}: muat ${L.cap}` : `Gerbong level ${L.car + 1}: muat ${L.cap} → ${CAR_CAP[L.car + 1]} per kereta`;
     const st = L.stations, n = st.length, canTrim = n > 2;
     const trimBtn = (id, label, city, cost) => {
       const b = $(id);
@@ -1556,7 +1588,7 @@
         stations: L.stations.length,
         km: Math.round(lineKm(L)),
         trains: L.trains.length,
-        cars: 1 + (L.cap - BASE_CAP) / CAP_STEP,  // gerbong per kereta: 1 bawaan + yang dibeli
+        cars: L.car,  // level gerbong (1 bawaan … 5)
         occ: seats ? onboard / seats : -1,
       };
     }).sort((a, b) => lineSort.dir * LINE_CMP[lineSort.key](a, b) || a.L.id - b.L.id);
@@ -1572,8 +1604,9 @@
       c[2].textContent = r.stations;
       c[3].textContent = r.km.toLocaleString('id-ID'); // km
       c[4].textContent = r.trains;
+      c[4].title = `${r.trains} dari maks ${maxTrains(L)} kereta (1 per ${KM_PER_TRAIN} km)`;
       c[5].textContent = r.cars;
-      c[5].title = `${r.cars} gerbong · muat ${L.cap} penumpang per kereta`;
+      c[5].title = `Gerbong level ${r.cars} · muat ${L.cap} penumpang per kereta`;
       c[6].textContent = r.seats ? `${Math.round(r.occ * 100)}%` : '–';
       c[6].title = r.seats ? `${r.onboard} penumpang dari ${r.seats} kursi` : '';
     });
@@ -1918,19 +1951,22 @@
     ctx.translate(p.x, p.y);
     ctx.rotate(p.ang);
     ctx.scale(UI, UI);
-    const len = 28 + (tr.line.cap - BASE_CAP) * 1.1;
+    // gerbong level 5 (muat 21): penumpang bertumpuk 3 baris, kereta lebih lebar; level 1–4: 2 baris
+    const rows = tr.line.car >= MAX_CAR ? 3 : 2;
+    const len = 28 + (Math.min(tr.line.cap, CAR_CAP[MAX_CAR - 1]) - BASE_CAP) * 1.1;
+    const h = rows * 6.6 + 2.8, row0 = -((rows - 1) * 6.6) / 2;
     ctx.fillStyle = tr.line.color;
     ctx.strokeStyle = '#1f2433';
     ctx.lineWidth = 1.5;
-    roundRect(-len / 2, -8, len, 16, 4); ctx.fill(); ctx.stroke();
+    roundRect(-len / 2, -h / 2, len, h, 4); ctx.fill(); ctx.stroke();
     // titik penumpang di dalam kereta
     ctx.fillStyle = '#fff';
-    const n = tr.pax.length, cols = Math.ceil(tr.line.cap / 2);
+    const n = tr.pax.length, cols = Math.ceil(tr.line.cap / rows);
     const sp = (len - 6) / cols;
     for (let k = 0; k < n; k++) {
       const col = k % cols, row = Math.floor(k / cols);
       ctx.beginPath();
-      ctx.arc(-len / 2 + 3 + sp * (col + 0.5), row ? 3.3 : -3.3, 2.1, 0, Math.PI * 2);
+      ctx.arc(-len / 2 + 3 + sp * (col + 0.5), row0 + row * 6.6, 2.1, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
