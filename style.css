@@ -301,9 +301,8 @@ button.small { padding: 6px 12px; font-size: 13px; }
   }
   #line-panel::-webkit-scrollbar { display: none; }
   #line-panel > * { flex: 0 0 auto; white-space: nowrap; }
-  /* tombol didahulukan; nama jalur cukup ditunjukkan warna chip; info di ujung baris */
-  #lp-name { display: none; }
-  #lp-info { font-size: 12px; order: 10; }
+  /* nama jalur + kereta/muat (pendek) di depan, lalu tombol */
+  #lp-name, #lp-info { font-size: 12px; }
   /* tepi kanan memudar: tanda baris bisa digeser */
   #line-panel {
     -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);

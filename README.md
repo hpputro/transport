@@ -59,8 +59,8 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
 - **Perpanjang jalur**: pilih jalurnya, lalu klik salah satu ujungnya. Kamu bisa memperpanjang dari ujung awal maupun ujung akhir.
 - **Kereta**: jalur baru dibuat **tanpa kereta**; beli kereta lewat tombol "+ Kereta" (maks. 4 per jalur) dan gerbong untuk menambah kapasitas. Harga naik 1,5× setiap kali membeli, dihitung per jalur: kereta $400 → $600 → $900 → $1.350, gerbong $250 → $375 → $563. Kalau jalur dihapus, kembali 50% dari biaya rel ditambah 50% dari yang dibayar untuk kereta & gerbong jalur itu.
   - Tiap jalur menyimpan **urutan pembuatan**, yaitu urutan kota saat jalur itu ditarik (termasuk saat diperpanjang dari ujung mana pun).
-  - Kereta baru selalu muncul di **kota pertama** dalam urutan itu (depo) dan berangkat ke arah **kota kedua**. Panel jalur menampilkannya, misalnya "depo Medan → Pekanbaru".
-  - Kalau sebuah kota dilepas dengan "Potong awal/akhir", kota itu keluar dari urutan dan depo serta arah mengikuti kota berikutnya dalam urutan.
+  - Kereta baru selalu muncul di **kota pertama** dalam urutan itu (depo) dan berangkat ke arah **kota kedua**. Arahkan kursor ke tombol "+ Kereta" untuk melihatnya, misalnya "Kereta baru muncul di Medan, berangkat ke arah Pekanbaru". Teks di panel bawah hanya menampilkan nama jalur, jumlah kereta, dan muatan (mis. "Jalur Marun · 2 kereta · muat 10").
+  - Kalau sebuah kota dilepas dengan tombol "Potong <kota ujung>", kota itu keluar dari urutan dan depo serta arah mengikuti kota berikutnya dalam urutan.
   - Kereta berhenti 0,5 detik di setiap stasiun, berapa pun jumlah penumpang yang naik atau turun.
   - Supaya kereta tidak berkumpul: kalau jarak ke kereta di depannya kurang dari 90% jarak ideal (satu putaran pulang-pergi ÷ jumlah kereta), kereta menunggu di stasiun maksimal 2 detik. Penumpang yang datang selama menunggu ikut naik saat kereta berangkat.
 - **Penumpang** muncul di tiap kota dengan tujuan kota lain. Mereka otomatis mencari rute terpendek, termasuk transit antar-jalur.

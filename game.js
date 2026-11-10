@@ -1218,7 +1218,7 @@
     $('lp-name').textContent = `Jalur ${L.name}`;
     $('lp-name').style.color = L.color;
     const depo = S.cities[L.order[0]].name, next = S.cities[L.order[1]].name;
-    $('lp-info').textContent = `${L.stations.length} stasiun · ${L.trains.length} kereta · muat ${L.cap} · depo ${depo} → ${next}`;
+    $('lp-info').textContent = `${L.trains.length} kereta · muat ${L.cap}`;
     $('b-train').title = `Kereta baru muncul di ${depo}, berangkat ke arah ${next}`;
     $('b-extend').classList.toggle('active', S.building);
     const tp = trainPrice(L), cp = capPrice(L);
@@ -1229,13 +1229,13 @@
     const st = L.stations, n = st.length, canTrim = n > 2;
     const trimBtn = (id, label, city, cost) => {
       const b = $(id);
-      b.textContent = `${label}: ${S.cities[city].name}` + (canTrim ? ` (+$${Math.round(cost * 0.5)})` : '');
+      b.textContent = `${label} ${S.cities[city].name}` + (canTrim ? ` (+$${Math.round(cost * 0.5)})` : '');
       b.disabled = !canTrim;
       b.title = canTrim ? `Lepas stasiun ${S.cities[city].name} dan bongkar relnya (uang kembali 50%)`
         : 'Jalur minimal 2 stasiun. Gunakan "Hapus jalur" untuk menghapusnya.';
     };
-    trimBtn('b-trim-head', 'Potong awal', st[0], L.segCosts[0]);
-    trimBtn('b-trim-tail', 'Potong akhir', st[n - 1], L.segCosts[n - 2]);
+    trimBtn('b-trim-head', 'Potong', st[0], L.segCosts[0]);
+    trimBtn('b-trim-tail', 'Potong', st[n - 1], L.segCosts[n - 2]);
   }
 
   function updateHint() {
