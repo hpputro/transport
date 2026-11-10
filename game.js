@@ -1578,7 +1578,7 @@
 
   // Urutan tabel: klik judul kolom untuk mengurutkan, klik lagi untuk membalik arah.
   // dir: 1 = naik ▲ (kecil → besar, A → Z), -1 = turun ▼. "No" = urutan bawaan.
-  const SORT_FIRST_DIR = { default: -1, wait: -1, ratio: -1, level: -1, pop: -1, name: 1 };
+  const SORT_FIRST_DIR = { default: -1, lines: -1, wait: -1, ratio: -1, level: -1, pop: -1, name: 1 };
   const citySort = { key: 'default', dir: -1 };
   /** Urutan bawaan (juga pemecah seri kolom lain): populasi, lalu level, lalu okupansi (semua dari terbesar), lalu nama A–Z. */
   const defaultCmp = (a, b) => b.c.pop - a.c.pop || b.c.size - a.c.size || b.ratio - a.ratio || a.c.name.localeCompare(b.c.name, 'id');
@@ -1587,6 +1587,7 @@
     default: () => 0,
     ratio: (a, b) => a.ratio - b.ratio,
     wait: (a, b) => a.c.wait.length - b.c.wait.length,
+    lines: (a, b) => linesAt(a.c).length - linesAt(b.c).length,
     level: (a, b) => a.c.size - b.c.size,
     pop: (a, b) => a.c.pop - b.c.pop,
     name: (a, b) => a.c.name.localeCompare(b.c.name, 'id'),
@@ -1637,6 +1638,9 @@
   makeSortable('#cp-lines', lineSort, LINE_FIRST_DIR);
 
   /** Isi tabel sesuai urutan yang dipilih; nilai yang sama diurutkan dengan urutan bawaan. */
+  /** Jalur yang melewati kota `c`, urut warna jalur. */
+  const linesAt = (c) => S.lines.filter((L) => L.stations.includes(c.id)).sort((a, b) => a.id - b.id);
+
   function renderCityPanel() {
     const cmp = SORT_CMP[citySort.key];
     // ratio = untuk urutan (Kampung selalu di atas saat diurutkan turun, yang penumpangnya lebih banyak lebih dulu);
@@ -1650,7 +1654,7 @@
       body.innerHTML = '';
       for (let k = 0; k < rows.length; k++) {
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td></td><td></td><td></td><td></td><td></td><td></td>';
+        tr.innerHTML = '<td></td><td></td><td></td><td class="cp-dots"></td><td></td><td></td><td></td>';
         tr.addEventListener('click', () => focusCity(+tr.dataset.id));
         body.appendChild(tr);
       }
@@ -1666,10 +1670,24 @@
       cells[0].textContent = k + 1;
       cells[1].textContent = LEVEL_CODE[c.size];
       cells[2].textContent = c.name;
-      cells[3].textContent = c.wait.length;
+      // jalur yang melewati kota: bulatan berwarna jalur (digambar ulang hanya kalau berubah)
+      const ls = linesAt(c);
+      const key = ls.map((L) => L.id).join(',');
+      if (cells[3].dataset.key !== key) {
+        cells[3].dataset.key = key;
+        cells[3].textContent = '';
+        for (const L of ls) {
+          const dot = document.createElement('i');
+          dot.style.background = L.color;
+          dot.title = `Jalur ${L.name}`;
+          cells[3].appendChild(dot);
+        }
+        if (!ls.length) cells[3].textContent = '–';
+      }
+      cells[4].textContent = c.wait.length;
       // okupansi = menunggu ÷ kapasitas; Kampung (kapasitas 0) tidak punya persentase
-      cells[4].textContent = c.size === 0 ? '–' : `${Math.round((c.wait.length / SIZE_CAP[c.size]) * 100)}%`;
-      cells[5].textContent = c.pop;
+      cells[5].textContent = c.size === 0 ? '–' : `${Math.round((c.wait.length / SIZE_CAP[c.size]) * 100)}%`;
+      cells[6].textContent = c.pop;
     });
   }
 

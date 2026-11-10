@@ -168,13 +168,18 @@ button.small { padding: 6px 12px; font-size: 13px; }
 #city-panel td { padding: 4px 6px; border-bottom: 1px solid #edf0f5; white-space: nowrap; }
 #cp-cities td:nth-child(1), #cp-cities td:nth-child(2) { color: var(--muted); width: 1%; }
 #cp-cities td:nth-child(2) { font-weight: 700; color: var(--ink); text-align: center; }
-#cp-cities td:nth-child(3) { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
-#cp-cities td:nth-child(n+4),
-#cp-cities th:nth-child(n+4) { text-align: right; }
+#cp-cities td, #cp-cities th { padding-left: 5px; padding-right: 5px; }
+#cp-cities td:nth-child(3) { max-width: 105px; overflow: hidden; text-overflow: ellipsis; }
+#cp-cities td:nth-child(n+5),
+#cp-cities th:nth-child(n+5) { text-align: right; }
+/* kolom Jalur: bulatan warna jalur berbingkai hitam, maksimal 5 per baris */
+#cp-cities td.cp-dots { white-space: normal; max-width: 66px; line-height: 0; color: var(--muted); }
+#cp-cities td.cp-dots:empty, #cp-cities td.cp-dots:not(:has(i)) { line-height: inherit; }
+#cp-cities td.cp-dots i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #111; margin: 1px 2px 1px 0; box-sizing: border-box; }
 #cp-cities tbody tr { cursor: pointer; }
 #cp-cities tbody tr:hover { background: #eef3fb; }
-#cp-cities tr.warn td:nth-child(5) { color: #b77900; font-weight: 700; }
-#cp-cities tr.over td:nth-child(5) { color: var(--bad); font-weight: 700; }
+#cp-cities tr.warn td:nth-child(6) { color: #b77900; font-weight: 700; }
+#cp-cities tr.over td:nth-child(6) { color: var(--bad); font-weight: 700; }
 #cp-cities tr.over { background: #fdf0f0; }
 /* tabel jalur */
 #cp-lines td:nth-child(1) { color: var(--muted); width: 1%; }
@@ -271,6 +276,11 @@ button.small { padding: 6px 12px; font-size: 13px; }
   .speed button { min-width: 32px; padding: 5px 6px; }
   #hud-bottom { padding-left: 12px; padding-right: 12px; gap: 4px; }
   #city-panel { width: 92vw; max-width: 400px; }
+  /* tabel kota 7 kolom: dirapatkan supaya muat tanpa geser ke samping */
+  #cp-cities td, #cp-cities th { padding-left: 3px; padding-right: 3px; }
+  #cp-cities thead th { letter-spacing: 0; font-size: 10px; }
+  #cp-cities td:nth-child(3) { max-width: 88px; }
+  #cp-cities td.cp-dots { max-width: 55px; }
   #hud-top { row-gap: 4px; }
   #b-cities, #b-lines, #b-chart { padding: 4px 8px; font-size: 12px; min-height: 30px; }
   .btn-text, .btn-ico { display: none; }
@@ -374,4 +384,11 @@ button.small { padding: 6px 12px; font-size: 13px; }
   .ch-card { padding: 10px 10px 8px; }
   .ch-plot { height: 180px; }
   .ch-plot-tall { height: 260px; }
+}
+/* HP sangat sempit (≤ 360 px, mis. iPhone SE): panel kota selebar layar, huruf sedikit lebih kecil */
+@media (max-width: 360px) {
+  #city-panel { width: 100vw; }
+  #cp-cities table { font-size: 11.5px; }
+  #cp-cities td:nth-child(3) { max-width: 72px; }
+  #cp-cities thead th { font-size: 9.5px; }
 }
