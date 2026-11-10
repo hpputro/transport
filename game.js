@@ -1352,8 +1352,8 @@
   // dir: 1 = naik ▲ (kecil → besar, A → Z), -1 = turun ▼. "No" = urutan bawaan.
   const SORT_FIRST_DIR = { default: -1, wait: -1, ratio: -1, level: -1, pop: -1, name: 1 };
   const citySort = { key: 'default', dir: -1 };
-  /** Urutan bawaan: tunggu/kapasitas, lalu level, lalu populasi (semua dari terbesar). */
-  const defaultCmp = (a, b) => b.ratio - a.ratio || b.c.size - a.c.size || b.c.pop - a.c.pop;
+  /** Urutan bawaan (juga pemecah seri kolom lain): populasi, lalu level, lalu okupansi (semua dari terbesar), lalu nama A–Z. */
+  const defaultCmp = (a, b) => b.c.pop - a.c.pop || b.c.size - a.c.size || b.ratio - a.ratio || a.c.name.localeCompare(b.c.name, 'id');
   // pembanding naik (kecil → besar / A → Z)
   const SORT_CMP = {
     default: () => 0,
