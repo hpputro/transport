@@ -55,15 +55,15 @@
   const MIN_ZOOM = 0.75;     // sedikit di bawah 1 supaya skala bisa dipertahankan saat panel bawah membesar/mengecil
   const LAST_MAP = GEO.LEVEL_REGIONS.length; // peta 1 = Sumatra, tiap peta menambah satu wilayah
   // Level kota 0..10. Level 0 (Kampung) = belum terhubung jalur, kapasitas 0: penumpang pertama saja sudah membuatnya penuh.
-  // Begitu tersambung, kota langsung menjadi Dusun (1); setelah itu kapasitas naik 1,5× tiap level (dibulatkan).
+  // Begitu tersambung, kota langsung menjadi Dusun (1); setelah itu kapasitas naik 1,75× tiap level (dibulatkan).
   // Hanya ukuran lingkaran yang membedakan level di peta.
   const SIZE_NAME = ['Kampung', 'Dusun', 'Desa', 'Distrik', 'Kota Kecil', 'Kotamadya', 'Kota Besar', 'Metropolitan', 'Megapolitan', 'Kota Global', 'Kapital'];
-  const SIZE_CAP = [0, 8, 12, 18, 27, 41, 61, 91, 137, 205, 308];
+  const SIZE_CAP = [0, 8, 14, 25, 43, 75, 131, 230, 402, 704, 1231];
   const SIZE_R = [8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
   const MAX_LEVEL = SIZE_NAME.length - 1;
   // total kunjungan untuk naik dari level i ke i+1 (selisih antarlevel = 5 × kapasitas level itu);
   // Kampung → Dusun bukan lewat kunjungan, tapi saat kota tersambung jalur
-  const GROW_AT = [0, 40, 100, 190, 325, 530, 835, 1290, 1975, 3000];
+  const GROW_AT = [0, 40, 110, 235, 450, 825, 1480, 2630, 4640, 8160];
   // jumlah maksimal kota per level dalam satu permainan: Kota Global paling banyak 3, Kapital hanya 1
   const LEVEL_LIMIT = { 9: 3, 10: 1 };
   const levelFull = (lv) => LEVEL_LIMIT[lv] !== undefined && S.cities.filter((c) => c.size === lv).length >= LEVEL_LIMIT[lv];
