@@ -272,7 +272,9 @@ button.small { padding: 6px 12px; font-size: 13px; }
   #hud-bottom { padding-left: 12px; padding-right: 12px; gap: 4px; }
   #city-panel { width: 92vw; max-width: 400px; }
   #hud-top { row-gap: 4px; }
-  #b-cities, #b-lines { padding: 4px 8px; font-size: 12px; min-height: 30px; }
+  #b-cities, #b-lines, #b-chart { padding: 4px 8px; font-size: 12px; min-height: 30px; }
+  .btn-text, .btn-ico { display: none; }
+  #hud-top { column-gap: 8px; }
   .speed { gap: 3px; }
   .speed button { min-width: 30px; min-height: 30px; padding: 4px 5px; }
   #chips { gap: 5px; }
@@ -305,4 +307,75 @@ button.small { padding: 6px 12px; font-size: 13px; }
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+}
+
+/* ---------- grafik pertumbuhan populasi (layar penuh) ---------- */
+.viz-root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --page: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --ring: rgba(11, 11, 11, 0.10);
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-other: #898781;
+}
+#chart-overlay {
+  position: fixed; inset: 0; z-index: 20;
+  background: var(--page);
+  color: var(--text-primary);
+  overflow-y: auto;
+}
+.ch-wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.ch-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.ch-head h2 { margin: 0; font-size: 20px; }
+#ch-sub { color: var(--text-secondary); font-size: 13px; flex: 1; }
+.ch-card {
+  background: var(--surface-1);
+  border: 1px solid var(--ring);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.ch-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.ch-note { font-weight: 400; color: var(--text-secondary); font-size: 12.5px; }
+.ch-hero { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.ch-hero b { font-size: 32px; line-height: 1.1; }
+#ch-delta { color: var(--text-secondary); font-size: 13px; }
+.ch-plot { position: relative; height: 220px; }
+.ch-plot-tall { height: 320px; }
+.ch-plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.ch-plot text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.ch-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 2px 0 8px; font-size: 12.5px; color: var(--text-secondary); }
+.ch-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ch-legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+.ch-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ch-table th { text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; padding: 5px 6px; border-bottom: 1px solid var(--grid); }
+.ch-table td { padding: 4px 6px; border-bottom: 1px solid #f0efec; }
+.ch-table td:nth-child(n+3), .ch-table th:nth-child(n+3) { text-align: right; }
+.ch-table i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; margin-right: 6px; vertical-align: 3px; }
+#ch-tip {
+  position: fixed; z-index: 21; pointer-events: none;
+  background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--ring); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 8px 10px; font-size: 12px; min-width: 140px;
+}
+#ch-tip .tt-head { color: var(--text-secondary); margin-bottom: 4px; }
+#ch-tip .tt-row { display: flex; align-items: center; gap: 6px; line-height: 1.6; }
+#ch-tip .tt-row i { display: inline-block; width: 10px; height: 2px; border-radius: 1px; }
+#ch-tip .tt-row b { font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+#ch-tip .tt-row span { color: var(--text-secondary); }
+@media (max-width: 600px) {
+  .ch-wrap { padding: 10px; }
+  .ch-head { margin-bottom: 8px; }
+  .ch-head h2 { font-size: 17px; flex: 1; }
+  #ch-sub { flex-basis: 100%; order: 3; font-size: 12px; }
+  .ch-card { padding: 10px 10px 8px; }
+  .ch-hero b { font-size: 26px; }
+  .ch-plot { height: 180px; }
+  .ch-plot-tall { height: 260px; }
 }

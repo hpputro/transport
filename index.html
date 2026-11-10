@@ -6,7 +6,7 @@
   <title>Lintas Kota</title>
   <meta name="description" content="Game strategi transportasi: hubungkan kota-kota di kepulauan dengan jalur kereta.">
   <!-- ?v=... = penanda versi supaya browser tidak memakai CSS/JS lama dari cache; ganti setiap kali file berubah -->
-  <link rel="stylesheet" href="style.css?v=0897706">
+  <link rel="stylesheet" href="style.css?v=a9edb44">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -21,8 +21,9 @@
       <div class="stat"><span class="lbl" id="s-sat-lbl">Kepuasan</span><div class="bar"><div id="s-sat"></div></div></div>
     </div>
     <button id="b-next" class="primary small" hidden>Peta berikutnya →</button>
-    <button id="b-cities" class="small" title="Tampilkan/sembunyikan daftar kota">☰ Kota</button>
-    <button id="b-lines" class="small" title="Tampilkan/sembunyikan daftar jalur">☰ Jalur</button>
+    <button id="b-cities" class="small" title="Tampilkan/sembunyikan daftar kota"><span class="btn-ico">☰ </span>Kota</button>
+    <button id="b-lines" class="small" title="Tampilkan/sembunyikan daftar jalur"><span class="btn-ico">☰ </span>Jalur</button>
+    <button id="b-chart" class="small" title="Grafik pertumbuhan populasi">📈<span class="btn-text"> Grafik</span></button>
     <div class="speed" role="group" aria-label="Kecepatan">
       <button data-speed="0" title="Jeda (Spasi)">❚❚</button>
       <button data-speed="0.25" title="Kecepatan 1: sangat lambat (¼×)">1</button>
@@ -106,6 +107,29 @@
     <p class="cp-note" id="cp-note-cities">Level: 0 Kampung (belum terhubung) · I Dusun · II Desa · III Distrik · IV Kota Kecil · V Kota Besar · VI Metropolitan · VII Megapolitan · VIII Kapital. Klik baris untuk menuju kota.</p>
   </aside>
 
+  <!-- grafik pertumbuhan populasi (layar penuh; permainan dijeda selama terbuka) -->
+  <div id="chart-overlay" class="viz-root" hidden>
+    <div class="ch-wrap">
+      <div class="ch-head">
+        <h2>Grafik pertumbuhan populasi</h2>
+        <span id="ch-sub"></span>
+        <button id="ch-close" class="small" title="Tutup grafik">✕ Tutup</button>
+      </div>
+      <section class="ch-card">
+        <div class="ch-title">Populasi negara</div>
+        <div class="ch-hero"><b id="ch-total">0</b><span id="ch-delta"></span></div>
+        <div class="ch-plot" id="ch-plot-total"></div>
+      </section>
+      <section class="ch-card">
+        <div class="ch-title">Populasi kota <span class="ch-note">— 7 kota terbesar, sisanya digabung jadi "Lainnya"</span></div>
+        <div class="ch-legend" id="ch-legend"></div>
+        <div class="ch-plot ch-plot-tall" id="ch-plot-cities"></div>
+        <table class="ch-table" id="ch-table"></table>
+      </section>
+    </div>
+    <div id="ch-tip" hidden></div>
+  </div>
+
   <div id="toasts"></div>
   <div id="tooltip" hidden></div>
 
@@ -130,7 +154,7 @@
     </div>
   </div>
 
-  <script src="geo.js?v=0897706"></script>
-  <script src="game.js?v=0897706"></script>
+  <script src="geo.js?v=a9edb44"></script>
+  <script src="game.js?v=a9edb44"></script>
 </body>
 </html>

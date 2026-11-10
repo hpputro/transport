@@ -729,6 +729,7 @@
       particles: [],
     };
     // kota peta ini yang belum muncul (Peta Bebas: hanya namanya, posisinya diacak saat muncul)
+    S.history = []; // populasi negara & kota per hari (untuk grafik)
     S.remaining = free ? ALL_CITIES.map((c) => ({ name: c.name })) : levelCities(level).slice();
     // undian 50-50 untuk aturan menyeberang yang punya pengecualian (lihat nextCityDef)
     S.spreadPlan = GEO.SPREAD.map((rule) => (rule.ifPresent ? (S.rng() < 0.5 ? 'before' : 'after') : null));
@@ -739,6 +740,7 @@
     // kota awal: maks. 3, semuanya di pulau baru (Peta 7 / Maluku hanya punya 2)
     const startCount = free ? 3 : Math.min(3, S.remaining.filter((d) => d.region === GEO.LEVEL_REGIONS[level - 1]).length);
     for (let i = 0; i < startCount; i++) spawnCity();
+    recordHistory();
     renderChips();
     updatePanel();
     updateHint();
@@ -749,6 +751,7 @@
     const day = Math.floor(S.t / DAY_LEN) + 1;
     if (day > S.day) {
       S.day = day;
+      recordHistory(); // titik data harian untuk grafik pertumbuhan populasi
       const cost = upkeepCost();
       S.money -= cost.total;
       toast(cost.total ? `Hari ${day} · perawatan -$${cost.total} (kereta $${cost.trains} + jalur $${cost.lines})` : `Hari ${day}`);
@@ -1273,6 +1276,190 @@
     resize();
   }
   $('b-collapse').addEventListener('click', () => setBottomCollapsed(!bottomPanel.collapsed));
+
+  // ================= Grafik pertumbuhan populasi =================
+  /** Catat populasi negara & tiap kota (dipanggil saat permainan dimulai dan setiap pergantian hari). */
+  function recordHistory() {
+    S.history.push({ x: S.day, total: S.population, pops: S.cities.map((c) => c.pop) });
+  }
+
+  const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6']; // urutan tetap
+  const OTHER_COLOR = '#898781';
+  const fmt = (v) => Math.round(v).toLocaleString('id-ID');
+  const chart = { open: false, wasPaused: false, data: null };
+
+  /** Data grafik: titik harian + titik "sekarang"; 7 kota terbesar + "Lainnya". */
+  function chartData() {
+    const pts = S.history.slice();
+    const nowX = 1 + S.t / DAY_LEN;
+    if (nowX > pts[pts.length - 1].x + 0.01) pts.push({ x: nowX, total: S.population, pops: S.cities.map((c) => c.pop) });
+    const xs = pts.map((p) => p.x);
+    const ranked = S.cities.slice().sort((a, b) => b.pop - a.pop || a.name.localeCompare(b.name, 'id'));
+    const top = ranked.slice(0, SERIES_COLORS.length), rest = ranked.slice(SERIES_COLORS.length);
+    const series = top.map((c, k) => ({ name: c.name, color: SERIES_COLORS[k], city: c, values: pts.map((p) => p.pops[c.id] || 0) }));
+    if (rest.length) {
+      const restIds = rest.map((c) => c.id);
+      series.push({ name: `Lainnya (${rest.length} kota)`, color: OTHER_COLOR, other: rest, values: pts.map((p) => restIds.reduce((a, id) => a + (p.pops[id] || 0), 0)) });
+    }
+    return { xs, total: pts.map((p) => p.total), series };
+  }
+
+  /** Batas sumbu "rapi" (1, 2, 5 × 10^n) dengan ±5 garis bantu. */
+  function niceTicks(max, count = 5) {
+    if (max <= 0) return [0, 1];
+    const raw = max / count, mag = 10 ** Math.floor(Math.log10(raw));
+    const step = Math.max(1, [1, 2, 5, 10].map((m) => m * mag).find((s) => s >= raw)); // populasi selalu bilangan bulat
+    const top = Math.ceil(max / step) * step, ticks = [];
+    for (let v = 0; v <= top + step / 2; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
+    return ticks;
+  }
+
+  const svgEl = (tag, attrs, parent) => {
+    const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+
+  /**
+   * Grafik garis SVG di dalam `box`: garis 2px, sumbu y mulai dari 0, garis bantu tipis,
+   * penanda di ujung garis, dan garis vertikal + tooltip yang mengikuti kursor (semua seri pada hari itu).
+   */
+  function lineChart(box, xs, series) {
+    box.innerHTML = '';
+    const W = box.clientWidth, H = box.clientHeight;
+    const m = { l: 44, r: 14, t: 10, b: 24 };
+    const pw = Math.max(10, W - m.l - m.r), ph = Math.max(10, H - m.t - m.b);
+    const xMax = Math.max(2, xs[xs.length - 1]);
+    const yTicks = niceTicks(Math.max(1, ...series.flatMap((s) => s.values)));
+    const yMax = yTicks[yTicks.length - 1];
+    const X = (x) => m.l + ((x - 1) / (xMax - 1)) * pw;
+    const Y = (y) => m.t + ph - (y / yMax) * ph;
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img' }, box);
+    // garis bantu horizontal + label sumbu y
+    for (const v of yTicks) {
+      svgEl('line', { x1: m.l, x2: m.l + pw, y1: Y(v), y2: Y(v), stroke: v === 0 ? '#c3c2b7' : '#e1e0d9', 'stroke-width': 1 }, svg);
+      const t = svgEl('text', { x: m.l - 6, y: Y(v) + 4, 'text-anchor': 'end' }, svg);
+      t.textContent = fmt(v);
+    }
+    // label sumbu x (hari)
+    const xStep = Math.max(1, Math.ceil((xMax - 1) / 8));
+    for (let d = 1; d <= Math.floor(xMax); d += xStep) {
+      const t = svgEl('text', { x: X(d), y: m.t + ph + 16, 'text-anchor': 'middle' }, svg);
+      t.textContent = `H${d}`;
+    }
+    // garis tiap seri, lalu penanda di ujungnya (dengan cincin warna permukaan)
+    for (const s of series) {
+      const d = s.values.map((v, k) => `${k ? 'L' : 'M'}${X(xs[k]).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+      svgEl('path', { d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+    }
+    for (const s of series) {
+      const k = xs.length - 1;
+      svgEl('circle', { cx: X(xs[k]), cy: Y(s.values[k]), r: 4, fill: s.color, stroke: '#fcfcfb', 'stroke-width': 2 }, svg);
+    }
+    // garis vertikal + titik + tooltip saat kursor/jari bergerak di atas grafik
+    const cross = svgEl('line', { y1: m.t, y2: m.t + ph, stroke: '#898781', 'stroke-width': 1, visibility: 'hidden' }, svg);
+    const dots = series.map((s) => svgEl('circle', { r: 4, fill: s.color, stroke: '#fcfcfb', 'stroke-width': 2, visibility: 'hidden' }, svg));
+    const hit = svgEl('rect', { x: m.l, y: m.t, width: pw, height: ph, fill: 'transparent' }, svg);
+    const tip = $('ch-tip');
+    const hide = () => { cross.setAttribute('visibility', 'hidden'); dots.forEach((d) => d.setAttribute('visibility', 'hidden')); tip.hidden = true; };
+    const show = (ev) => {
+      const r = svg.getBoundingClientRect();
+      const px = ((ev.clientX - r.left) / r.width) * W;
+      let k = 0;
+      xs.forEach((x, i) => { if (Math.abs(X(x) - px) < Math.abs(X(xs[k]) - px)) k = i; });
+      const cx = X(xs[k]);
+      cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
+      dots.forEach((d, i) => { d.setAttribute('cx', cx); d.setAttribute('cy', Y(series[i].values[k])); d.setAttribute('visibility', 'visible'); });
+      // isi tooltip: nilai dulu, lalu nama (teks berwarna tinta, warna seri hanya di garis kecil)
+      tip.textContent = '';
+      const head = document.createElement('div');
+      head.className = 'tt-head';
+      head.textContent = k === xs.length - 1 && xs[k] % 1 ? `Hari ${Math.floor(xs[k])} (sekarang)` : `Hari ${xs[k]}`;
+      tip.appendChild(head);
+      series.map((s) => ({ s, v: s.values[k] })).sort((a, b) => b.v - a.v).forEach(({ s, v }) => {
+        const row = document.createElement('div');
+        row.className = 'tt-row';
+        const i = document.createElement('i'); i.style.background = s.color;
+        const bEl = document.createElement('b'); bEl.textContent = fmt(v);
+        const sp = document.createElement('span'); sp.textContent = s.name;
+        row.append(i, bEl, sp);
+        tip.appendChild(row);
+      });
+      tip.hidden = false;
+      const tx = ev.clientX + 14 + tip.offsetWidth > window.innerWidth ? ev.clientX - tip.offsetWidth - 14 : ev.clientX + 14;
+      tip.style.left = Math.max(4, tx) + 'px';
+      tip.style.top = Math.min(window.innerHeight - tip.offsetHeight - 4, Math.max(4, ev.clientY - tip.offsetHeight / 2)) + 'px';
+    };
+    hit.addEventListener('pointermove', show);
+    hit.addEventListener('pointerdown', show);
+    hit.addEventListener('pointerleave', hide);
+  }
+
+  function renderCharts() {
+    const d = chartData();
+    chart.data = d;
+    const n = d.total.length;
+    $('ch-sub').textContent = `${S.free ? 'Peta Bebas' : `Peta ${S.level}`} · hari ${S.day} · ${S.cities.length}/${S.target} kota`;
+    $('ch-total').textContent = fmt(d.total[n - 1]);
+    // perubahan dibanding awal hari ini
+    const today = S.history[S.history.length - 1];
+    const delta = d.total[n - 1] - today.total;
+    $('ch-delta').textContent = `+${fmt(delta)} sejak awal hari ${today.x}`;
+    lineChart($('ch-plot-total'), d.xs, [{ name: 'Populasi negara', color: SERIES_COLORS[0], values: d.total }]);
+    // legenda (selalu ada untuk ≥ 2 seri)
+    const leg = $('ch-legend');
+    leg.textContent = '';
+    for (const s of d.series) {
+      const sp = document.createElement('span');
+      const i = document.createElement('i'); i.style.background = s.color;
+      sp.append(i, document.createTextNode(s.name));
+      leg.appendChild(sp);
+    }
+    lineChart($('ch-plot-cities'), d.xs, d.series);
+    // tabel nilai (juga cadangan untuk warna berkontras rendah)
+    const back = Math.max(0, n - 6); // ±5 hari lalu
+    const tb = $('ch-table');
+    tb.textContent = '';
+    const hr = tb.insertRow();
+    for (const h of ['Kota', 'Level', 'Populasi', '+5 hari']) { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); }
+    for (const s of d.series) {
+      const r = tb.insertRow();
+      const c0 = r.insertCell(); const i = document.createElement('i'); i.style.background = s.color; c0.append(i, document.createTextNode(s.name));
+      r.insertCell().textContent = s.city ? `${LEVEL_CODE[s.city.size]} ${SIZE_NAME[s.city.size]}` : '–';
+      r.insertCell().textContent = fmt(s.values[n - 1]);
+      const dv = s.values[n - 1] - s.values[back];
+      r.insertCell().textContent = (dv >= 0 ? '+' : '−') + fmt(Math.abs(dv));
+    }
+  }
+
+  function openChart() {
+    chart.open = true;
+    chart.wasPaused = S.paused;
+    S.paused = true; // permainan dijeda selama grafik terbuka
+    $('chart-overlay').hidden = false;
+    $('b-chart').blur();
+    renderCharts();
+  }
+  function closeChart() {
+    chart.open = false;
+    $('chart-overlay').hidden = true;
+    $('ch-tip').hidden = true;
+    S.paused = chart.wasPaused;
+  }
+  $('b-chart').addEventListener('click', () => (chart.open ? closeChart() : openChart()));
+  $('ch-close').addEventListener('click', closeChart);
+  // selama grafik terbuka, pintasan game (Spasi, 1–5, …) tidak berlaku; Esc menutup grafik
+  window.addEventListener('keydown', (e) => {
+    if (!chart.open) return;
+    e.stopImmediatePropagation();
+    if (e.key === ' ' || e.key === 'Enter') e.preventDefault(); // jangan "menekan" tombol yang sedang fokus
+    if (e.key === 'Escape') closeChart();
+  }, true);
+  window.addEventListener('keyup', (e) => {
+    if (chart.open && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  window.addEventListener('resize', () => { if (chart.open) renderCharts(); });
 
   // ---- panel samping: daftar kota / daftar jalur ----
   const LEVEL_CODE = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // 0 = Kampung, I = Dusun … VIII = Kapital
@@ -1853,5 +2040,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart };
 })();

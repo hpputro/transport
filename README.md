@@ -103,6 +103,7 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   Setiap penumpang yang sampai di tujuan menambah kepuasan +0,6 (maksimal 100). Kalau kepuasan habis, permainan selesai.
 - **Daftar kota** (tombol "☰ Kota" di kanan atas): tabel `No | Lv | Kota | Menunggu | Okupansi | Pop`, urutan bawaannya: populasi terbesar, lalu level tertinggi, lalu okupansi (menunggu ÷ kapasitas) terbesar. Urutan bawaan ini juga dipakai sebagai pemecah seri saat mengurutkan kolom lain. Okupansi Kampung ditulis "–" karena kapasitasnya 0, dan saat okupansi diurutkan turun Kampung selalu di atas. Level ditulis dengan kode pada tabel di atas (0 Kampung, I Dusun … VIII Kapital). Klik judul kolom untuk mengurutkan berdasarkan kolom itu (klik lagi untuk membalik arah, ▲ naik / ▼ turun); klik "No" untuk kembali ke urutan bawaan. Baris kuning = lebih dari 50% kapasitas, merah = melebihi kapasitas. Klik baris untuk menggeser peta ke kota itu. Di layar lebar panel ini terbuka di samping peta; di HP panel tertutup sampai tombolnya diketuk.
 - **Daftar jalur** (tombol "☰ Jalur" di sebelah tombol Kota; panel yang sama, berganti isi): tabel `No | Jalur | Kota | Jarak | Kereta | Gerbong | Okupansi`. Kota = jumlah stasiun, Jarak = panjang rel (km, 1° ≈ 111 km), Gerbong = gerbong per kereta (1 bawaan + yang dibeli), Okupansi = persentase penumpang di dalam semua kereta jalur itu dibanding total kapasitasnya saat ini. Klik judul kolom untuk mengurutkan (klik lagi untuk membalik arah; "No" = urutan warna jalur). Klik baris untuk memilih jalur. Klik tombol yang sedang aktif untuk menutup panel.
+- **Grafik** (tombol "📈 Grafik"; di HP hanya ikon 📈): layar penuh berisi dua grafik garis per hari. *Populasi negara* = total populasi semua kota, dengan angka besar dan selisih sejak awal hari ini. *Populasi kota* = 7 kota terbesar, sisanya digabung jadi "Lainnya (n kota)"; di bawahnya ada tabel `Kota | Level | Populasi | +5 hari` (selisih dibanding 5 hari lalu). Arahkan kursor / ketuk grafik untuk melihat angka tiap hari. Titik terakhir adalah keadaan saat ini (di tengah hari). Permainan dijeda selama grafik terbuka dan berjalan lagi saat ditutup (✕ Tutup atau `Esc`).
 
 ## Kontrol
 
@@ -113,6 +114,7 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
 | Zoom | roda mouse, `+` / `-` | cubit |
 | Selesai membangun | klik area kosong, klik kanan, `Esc` | ketuk area kosong |
 | Jeda / kecepatan | `Spasi`; `1`–`5` | tombol ❚❚ dan 1–5 di kanan atas |
+| Buka / tutup grafik populasi | tombol 📈 Grafik; tutup dengan `Esc` | tombol 📈 |
 | Sembunyikan / tampilkan panel bawah | tombol V (pojok kanan atas panel bawah) / ^ (pojok kanan bawah) | sama |
 
 Kecepatan 1–5 setara ¼×, ½×, 1×, 2×, 3× waktu normal. Permainan dimulai di kecepatan 3 (normal).
