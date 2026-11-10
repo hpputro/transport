@@ -1284,31 +1284,42 @@
     S.history.push({ x: S.day, total: S.population, pops: S.cities.map((c) => c.pop) });
   }
 
-  const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6']; // urutan tetap
-  const OTHER_COLOR = '#898781';
+  const CHART_TOP = 10; // jumlah kota terbesar yang digambar
+  // warna per pulau; tiap kota mendapat gradasi tetap (gelap → terang) menurut urutannya di daftar ibu kota
+  const REGION_HUES = [
+    { regions: ['sumatra'], h: [0, 8], s: 78, l: [24, 68] },             // merah
+    { regions: ['jawa'], h: [128, 140], s: 62, l: [18, 55] },            // hijau
+    { regions: ['sulawesi'], h: [212, 205], s: 78, l: [24, 66] },        // biru
+    { regions: ['papua'], h: [272, 282], s: 55, l: [24, 70] },           // ungu
+    { regions: ['kalimantan'], h: [40, 52], s: 95, l: [36, 54] },        // kuning
+    { regions: ['maluku', 'nusatenggara'], h: [0, 0], s: 0, l: [6, 62] }, // hitam
+  ];
+  const CITY_COLOR = {};
+  for (const g of REGION_HUES) {
+    const list = ALL_CITIES.filter((c) => g.regions.includes(c.region));
+    // kota yang bersebelahan di daftar (biasanya bertetangga di peta) diberi gradasi yang berjauhan:
+    // urutan gradasi 0, ½N, 1, ½N+1, … (mis. 10 kota: 0 5 1 6 2 7 3 8 4 9)
+    const half = Math.ceil(list.length / 2);
+    list.forEach((c, i) => {
+      const step = i % 2 ? half + (i >> 1) : i >> 1;
+      const t = list.length > 1 ? step / (list.length - 1) : 0;
+      const lerp = ([a, b]) => a + (b - a) * t;
+      CITY_COLOR[c.name] = `hsl(${lerp(g.h).toFixed(0)}, ${g.s}%, ${lerp(g.l).toFixed(0)}%)`;
+    });
+  }
   const fmt = (v) => Math.round(v).toLocaleString('id-ID');
-  const chart = { open: false, data: null, hover: null, lastRender: 0, slots: [], slotsFor: null };
+  const chart = { open: false, data: null, hover: null, lastRender: 0 };
   const CHART_REFRESH = 0.25; // detik (waktu nyata) antar-pembaruan grafik live
 
-  /** Data grafik: titik harian + titik "sekarang"; 7 kota terbesar + "Lainnya". */
+  /** Data grafik: titik harian + titik "sekarang"; 10 kota terbesar. */
   function chartData() {
     const pts = S.history.slice();
     const nowX = 1 + S.t / DAY_LEN;
     if (nowX > pts[pts.length - 1].x + 0.01) pts.push({ x: nowX, total: S.population, pops: S.cities.map((c) => c.pop) });
     const xs = pts.map((p) => p.x);
     const ranked = S.cities.slice().sort((a, b) => b.pop - a.pop || a.name.localeCompare(b.name, 'id'));
-    const top = ranked.slice(0, SERIES_COLORS.length), rest = ranked.slice(SERIES_COLORS.length);
-    // warna melekat pada kota, bukan pada peringkat: kota yang tetap di 7 besar mempertahankan warnanya,
-    // kota yang baru masuk mengambil warna yang dilepas kota yang keluar
-    if (chart.slotsFor !== S) { chart.slotsFor = S; chart.slots = SERIES_COLORS.map(() => null); }
-    const topIds = top.map((c) => c.id);
-    chart.slots = chart.slots.map((id) => (topIds.includes(id) ? id : null));
-    for (const id of topIds) if (!chart.slots.includes(id)) chart.slots[chart.slots.indexOf(null)] = id;
-    const series = top.map((c) => ({ name: c.name, color: SERIES_COLORS[chart.slots.indexOf(c.id)], city: c, values: pts.map((p) => p.pops[c.id] || 0) }));
-    if (rest.length) {
-      const restIds = rest.map((c) => c.id);
-      series.push({ name: `Lainnya (${rest.length} kota)`, color: OTHER_COLOR, other: rest, values: pts.map((p) => restIds.reduce((a, id) => a + (p.pops[id] || 0), 0)) });
-    }
+    const top = ranked.slice(0, CHART_TOP); // kota di luar 10 besar tidak digambar
+    const series = top.map((c) => ({ name: c.name, color: CITY_COLOR[c.name] || '#898781', city: c, values: pts.map((p) => p.pops[c.id] || 0) }));
     return { xs, total: pts.map((p) => p.total), series };
   }
 
@@ -2053,5 +2064,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR };
 })();
