@@ -45,7 +45,10 @@
   const CAP_STEP = 4;
   const BASE_CAP = 6, MAX_CAP = 18;
   const MAX_TRAINS = 4;
-  const UPKEEP = 20;         // biaya perawatan per kereta per hari
+  const UPKEEP = 20;         // perawatan harian: $20 per kereta
+  const UPKEEP_PER_SEAT = 2; // ...+ $2 per kursi (kapasitas) kereta
+  const UPKEEP_PER_KM = 1;   // ...+ $1 per km panjang jalur
+  const PRICE_GROWTH = 1.5;  // harga kereta & gerbong naik 1,5× setiap kali membeli (per jalur)
   const START_MONEY = 1500;
   const SPEEDS = [0.25, 0.5, 1, 2, 3]; // tombol keyboard 1..5; bawaan = 1× (tingkat ke-3)
   const MAX_ZOOM = 6;        // zoom maksimal relatif terhadap tampilan seluruh wilayah
@@ -500,13 +503,35 @@
     return L;
   }
 
-  function addTrain(L, free) {
+  // Harga naik 1,5× setiap kali membeli, dihitung per jalur.
+  const trainPrice = (L) => Math.round(TRAIN_COST * PRICE_GROWTH ** L.trains.length);
+  const capPrice = (L) => Math.round(CAP_COST * PRICE_GROWTH ** ((L.cap - BASE_CAP) / CAP_STEP));
+
+  /** Panjang rel sebuah jalur dalam km (1° ≈ 111 km). */
+  function lineKm(L) {
+    let len = 0;
+    for (let s = 0; s + 1 < L.stations.length; s++) len += dist(S.cities[L.stations[s]], S.cities[L.stations[s + 1]]);
+    return (len / PX_PER_DEG) * 111;
+  }
+
+  /**
+   * Biaya perawatan harian:
+   *   kereta = jumlah kereta × $20 + total kapasitas kereta × $2
+   *   jalur  = total panjang semua jalur (km) × $1
+   */
+  function upkeepCost() {
+    const trains = S.trains.length * UPKEEP + S.trains.reduce((a, t) => a + t.line.cap, 0) * UPKEEP_PER_SEAT;
+    const lines = Math.round(S.lines.reduce((a, L) => a + lineKm(L), 0) * UPKEEP_PER_KM);
+    return { trains, lines, total: trains + lines };
+  }
+
+  function addTrain(L) {
     if (L.stations.length < 2) return;
     if (L.trains.length >= MAX_TRAINS) { toast(`Jalur ${L.name} sudah punya ${MAX_TRAINS} kereta`, 'bad'); return; }
-    if (!free) {
-      if (S.money < TRAIN_COST) { toast(`Kas tidak cukup (butuh $${TRAIN_COST})`, 'bad'); return; }
-      S.money -= TRAIN_COST;
-    }
+    const price = trainPrice(L);
+    if (S.money < price) { toast(`Kas tidak cukup (butuh $${price})`, 'bad'); return; }
+    S.money -= price;
+    L.spent = (L.spent || 0) + price; // dicatat untuk pengembalian uang saat jalur dihapus
     // muncul di kota pertama dalam urutan pembuatan (depo), berangkat ke arah kota kedua dalam urutan itu
     const i = L.stations.indexOf(L.order[0]), j = L.stations.indexOf(L.order[1]);
     const tr = { line: L, i, dir: Math.sign(j - i), prog: 0, state: 'dwell', dwellT: 0.6, pax: [] };
@@ -517,8 +542,10 @@
 
   function upgradeCap(L) {
     if (L.cap >= MAX_CAP) return;
-    if (S.money < CAP_COST) { toast(`Kas tidak cukup (butuh $${CAP_COST})`, 'bad'); return; }
-    S.money -= CAP_COST;
+    const price = capPrice(L);
+    if (S.money < price) { toast(`Kas tidak cukup (butuh $${price})`, 'bad'); return; }
+    S.money -= price;
+    L.spent = (L.spent || 0) + price;
     L.cap += CAP_STEP;
     toast(`Kereta jalur ${L.name} kini muat ${L.cap} penumpang`, 'good');
   }
@@ -561,7 +588,8 @@
 
   function deleteLine(L) {
     const track = L.segCosts.reduce((a, b) => a + b, 0);
-    const refund = Math.round(track * 0.5 + Math.max(0, L.trains.length - 1) * TRAIN_COST * 0.5);
+    // kembali 50% dari biaya rel + 50% dari yang dibayar untuk kereta & gerbong jalur ini
+    const refund = Math.round((track + (L.spent || 0)) * 0.5);
     for (const tr of L.trains) {
       if (L.stations.length) S.cities[L.stations[clamp(tr.i, 0, L.stations.length - 1)]].wait.push(...tr.pax);
     }
@@ -719,9 +747,9 @@
     const day = Math.floor(S.t / DAY_LEN) + 1;
     if (day > S.day) {
       S.day = day;
-      const cost = S.trains.length * UPKEEP;
-      S.money -= cost;
-      toast(cost ? `Hari ${day} · perawatan kereta -$${cost}` : `Hari ${day}`);
+      const cost = upkeepCost();
+      S.money -= cost.total;
+      toast(cost.total ? `Hari ${day} · perawatan -$${cost.total} (kereta $${cost.trains} + jalur $${cost.lines})` : `Hari ${day}`);
     }
     if (S.cities.length < S.target) {
       // semua kota yang ada sudah tersambung → kota berikutnya datang lebih cepat
@@ -963,7 +991,8 @@
     }
     L.order.push(c.id);
     recomputeNetwork();
-    if (st.length === 2 && !L.trains.length) addTrain(L, true);
+    // jalur baru belum punya kereta; kereta dibeli lewat tombol "+ Kereta"
+    if (st.length === 2 && !L.trains.length) toast(`Jalur ${L.name} dibuat. Tambah kereta ($${trainPrice(L)}) supaya bisa beroperasi.`);
     S.particles.push({ x: (from.x + c.x) / 2, y: (from.y + c.y) / 2, text: `-$${cost}`, life: 1.2, color: '#b3261e' });
     refreshUi();
   }
@@ -1093,7 +1122,7 @@
   }));
 
   $('b-extend').addEventListener('click', () => { if (S.selected) { S.building = true; S.buildEnd = 'tail'; refreshUi(); } });
-  $('b-train').addEventListener('click', () => { if (S.selected) { addTrain(S.selected, false); refreshUi(); } });
+  $('b-train').addEventListener('click', () => { if (S.selected) { addTrain(S.selected); refreshUi(); } });
   $('b-cap').addEventListener('click', () => { if (S.selected) { upgradeCap(S.selected); refreshUi(); } });
   $('b-trim-head').addEventListener('click', () => { if (S.selected) { trimLine(S.selected, true); refreshUi(); } });
   $('b-trim-tail').addEventListener('click', () => { if (S.selected) { trimLine(S.selected, false); refreshUi(); } });
@@ -1185,10 +1214,11 @@
     $('lp-info').textContent = `${L.stations.length} stasiun · ${L.trains.length} kereta · muat ${L.cap} · depo ${depo} → ${next}`;
     $('b-train').title = `Kereta baru muncul di ${depo}, berangkat ke arah ${next}`;
     $('b-extend').classList.toggle('active', S.building);
-    $('b-train').textContent = `+ Kereta ($${TRAIN_COST})`;
-    $('b-train').disabled = L.trains.length >= MAX_TRAINS || S.money < TRAIN_COST;
-    $('b-cap').textContent = L.cap >= MAX_CAP ? 'Gerbong maks' : `+ Gerbong ($${CAP_COST})`;
-    $('b-cap').disabled = L.cap >= MAX_CAP || S.money < CAP_COST;
+    const tp = trainPrice(L), cp = capPrice(L);
+    $('b-train').textContent = L.trains.length >= MAX_TRAINS ? 'Kereta maks' : `+ Kereta ($${tp})`;
+    $('b-train').disabled = L.trains.length >= MAX_TRAINS || S.money < tp;
+    $('b-cap').textContent = L.cap >= MAX_CAP ? 'Gerbong maks' : `+ Gerbong ($${cp})`;
+    $('b-cap').disabled = L.cap >= MAX_CAP || S.money < cp;
     const st = L.stations, n = st.length, canTrim = n > 2;
     const trimBtn = (id, label, city, cost) => {
       const b = $(id);
@@ -1287,13 +1317,11 @@
       }
     }
     const rows = lines.map((L) => {
-      let len = 0;
-      for (let s = 0; s + 1 < L.stations.length; s++) len += dist(S.cities[L.stations[s]], S.cities[L.stations[s + 1]]);
       const onboard = L.trains.reduce((a, t) => a + t.pax.length, 0), seats = L.trains.length * L.cap;
       return {
         L, onboard, seats,
         stations: L.stations.length,
-        km: Math.round((len / PX_PER_DEG) * 111), // 1° ≈ 111 km
+        km: Math.round(lineKm(L)),
         trains: L.trains.length,
         cars: 1 + (L.cap - BASE_CAP) / CAP_STEP,  // gerbong per kereta: 1 bawaan + yang dibeli
         occ: seats ? onboard / seats : -1,
@@ -1798,5 +1826,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm };
 })();

@@ -57,7 +57,7 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   - gunung ×2,5 (terowongan)
   - laut ×4 (jembatan)
 - **Perpanjang jalur**: pilih jalurnya, lalu klik salah satu ujungnya. Kamu bisa memperpanjang dari ujung awal maupun ujung akhir.
-- **Kereta**: jalur baru otomatis mendapat 1 kereta gratis. Tambah kereta (maks. 4 per jalur) atau gerbong untuk menambah kapasitas.
+- **Kereta**: jalur baru dibuat **tanpa kereta**; beli kereta lewat tombol "+ Kereta" (maks. 4 per jalur) dan gerbong untuk menambah kapasitas. Harga naik 1,5× setiap kali membeli, dihitung per jalur: kereta $400 → $600 → $900 → $1.350, gerbong $250 → $375 → $563. Kalau jalur dihapus, kembali 50% dari biaya rel ditambah 50% dari yang dibayar untuk kereta & gerbong jalur itu.
   - Tiap jalur menyimpan **urutan pembuatan**, yaitu urutan kota saat jalur itu ditarik (termasuk saat diperpanjang dari ujung mana pun).
   - Kereta baru selalu muncul di **kota pertama** dalam urutan itu (depo) dan berangkat ke arah **kota kedua**. Panel jalur menampilkannya, misalnya "depo Medan → Pekanbaru".
   - Kalau sebuah kota dilepas dengan "Potong awal/akhir", kota itu keluar dari urutan dan depo serta arah mengikuti kota berikutnya dalam urutan.
@@ -71,7 +71,8 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   - Faktor kepadatan = 1 selama penumpang yang menunggu di kota tujuan ≤ kapasitas. Kalau melebihi, faktornya `(kapasitas ÷ menunggu)²`: kota yang penuh 1,5× kapasitas hanya 44% diminati, 2× hanya 25%. Tooltip kota menampilkan angka ini.
   - Titik gelap: penumpang yang sudah punya rute.
   - Titik merah: tujuannya belum terhubung ke jaringan.
-- **Pendapatan**: tarif = $10 + $5 × jumlah stasiun yang dilewati. Biaya perawatan $20 per kereta per hari.
+- **Pendapatan**: tarif = $10 + $5 × jumlah stasiun yang dilewati.
+- **Biaya perawatan harian** (ditagih setiap pergantian hari): kereta = jumlah kereta × $20 + total kapasitas kereta × $2; jalur = total panjang semua jalur (km) × $1. Notifikasinya menampilkan rinciannya, misalnya "perawatan −$600 (kereta $224 + jalur $376)".
 - **Status kota** (tampil di tooltip kota):
   - **Dikunjungi**: jumlah penumpang yang turun di kota itu, baik yang sampai tujuan maupun yang transit pindah jalur. Penumpang yang hanya lewat di dalam kereta tidak dihitung. Ini syarat naik level (lihat tabel di bawah). Kota transit yang ramai naik level lebih cepat.
   - **Populasi**: jumlah penumpang yang diantar ke kota itu sebagai tujuan akhir. Populasi semua kota dijumlahkan menjadi **populasi negara** (HUD atas), yang jadi skor permainan.
