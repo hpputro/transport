@@ -54,16 +54,19 @@
   const MAX_ZOOM = 6;        // zoom maksimal relatif terhadap tampilan seluruh wilayah
   const MIN_ZOOM = 0.75;     // sedikit di bawah 1 supaya skala bisa dipertahankan saat panel bawah membesar/mengecil
   const LAST_MAP = GEO.LEVEL_REGIONS.length; // peta 1 = Sumatra, tiap peta menambah satu wilayah
-  // Level kota 0..8. Level 0 (Kampung) = belum terhubung jalur, kapasitas 0: penumpang pertama saja sudah membuatnya penuh.
-  // Begitu tersambung, kota langsung menjadi Dusun (1); setelah itu kapasitas berlipat dua tiap level.
+  // Level kota 0..10. Level 0 (Kampung) = belum terhubung jalur, kapasitas 0: penumpang pertama saja sudah membuatnya penuh.
+  // Begitu tersambung, kota langsung menjadi Dusun (1); setelah itu kapasitas naik 1,5× tiap level (dibulatkan).
   // Hanya ukuran lingkaran yang membedakan level di peta.
-  const SIZE_NAME = ['Kampung', 'Dusun', 'Desa', 'Distrik', 'Kota Kecil', 'Kota Besar', 'Metropolitan', 'Megapolitan', 'Kapital'];
-  const SIZE_CAP = [0, 8, 16, 32, 64, 128, 256, 512, 1024];
-  const SIZE_R = [8, 10, 12.5, 15, 17.5, 20, 22.5, 25, 27.5];
+  const SIZE_NAME = ['Kampung', 'Dusun', 'Desa', 'Distrik', 'Kota Kecil', 'Kotamadya', 'Kota Besar', 'Metropolitan', 'Megapolitan', 'Kota Global', 'Kapital'];
+  const SIZE_CAP = [0, 8, 12, 18, 27, 41, 61, 91, 137, 205, 308];
+  const SIZE_R = [8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
   const MAX_LEVEL = SIZE_NAME.length - 1;
   // total kunjungan untuk naik dari level i ke i+1 (selisih antarlevel = 5 × kapasitas level itu);
   // Kampung → Dusun bukan lewat kunjungan, tapi saat kota tersambung jalur
-  const GROW_AT = [0, 40, 120, 280, 600, 1240, 2520, 5080];
+  const GROW_AT = [0, 40, 100, 190, 325, 530, 835, 1290, 1975, 3000];
+  // jumlah maksimal kota per level dalam satu permainan: Kota Global paling banyak 3, Kapital hanya 1
+  const LEVEL_LIMIT = { 9: 3, 10: 1 };
+  const levelFull = (lv) => LEVEL_LIMIT[lv] !== undefined && S.cities.filter((c) => c.size === lv).length >= LEVEL_LIMIT[lv];
   const NUMBER_FROM = 3;     // mulai Distrik, penumpang menunggu ditampilkan sebagai angka di dalam lingkaran
   const SAME_LINE_BONUS = 2; // kota tujuan yang satu jalur dengan kota asal 2× lebih sering dipilih
 
@@ -395,7 +398,7 @@
    */
   /**
    * Kapasitas yang dipakai untuk menilai "penuh": kapasitas level, kecuali Kampung (kapasitas 0)
-   * yang dianggap berkapasitas maksimal (1024). Dipakai bersama oleh kepuasan, tampilan, dan tujuan penumpang.
+   * yang dianggap berkapasitas maksimal (kapasitas Kapital). Dipakai bersama oleh kepuasan, tampilan, dan tujuan penumpang.
    */
   const effectiveCap = (c) => (c.size === 0 ? SIZE_CAP[MAX_LEVEL] : SIZE_CAP[c.size]);
 
@@ -629,7 +632,7 @@
   /** Kunjungan = penumpang yang turun di kota ini (sampai tujuan atau transit). Jadi syarat naik level. */
   function addVisit(city) {
     city.visits++;
-    if (city.size >= 1 && city.size < MAX_LEVEL && city.visits >= GROW_AT[city.size]) {
+    if (city.size >= 1 && city.size < MAX_LEVEL && city.visits >= GROW_AT[city.size] && !levelFull(city.size + 1)) {
       city.size++;
       toast(`${city.name} berkembang menjadi ${SIZE_NAME[city.size].toLowerCase()}!`, 'good');
     }
@@ -1485,7 +1488,7 @@
   window.addEventListener('resize', () => { if (chart.open) renderCharts(); });
 
   // ---- panel samping: daftar kota / daftar jalur ----
-  const LEVEL_CODE = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // 0 = Kampung, I = Dusun … VIII = Kapital
+  const LEVEL_CODE = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']; // 0 = Kampung, I = Dusun … X = Kapital
   const PANEL_W = 400;  // sama dengan lebar #city-panel di style.css
   const wideScreen = () => window.innerWidth >= 900; // di layar lebar panel berdampingan dengan peta
   const cityPanel = {
@@ -1744,7 +1747,9 @@
       .map(([id, n]) => `${S.cities[id].name} (${n})`).join(', ');
     const lines = S.lines.filter((l) => l.stations.includes(c.id)).map((l) => l.name).join(', ');
     // (kunjungan/syarat level berikutnya); Kampung belum bisa naik lewat kunjungan, Kapital sudah tertinggi
-    const visits = c.size === 0 ? 'belum terhubung' : c.size < MAX_LEVEL ? `${c.visits}/${GROW_AT[c.size]}` : `${c.visits}`;
+    // kalau kuota level berikutnya sudah habis (3 Kota Global / 1 Kapital), tulis "kuota penuh"
+    const visits = c.size === 0 ? 'belum terhubung' : c.size >= MAX_LEVEL ? `${c.visits}`
+      : `${c.visits}/${GROW_AT[c.size]}` + (levelFull(c.size + 1) ? ` · ${SIZE_NAME[c.size + 1]} sudah ${LEVEL_LIMIT[c.size + 1]}` : '');
     const appeal = crowdFactor(c);
     // Contoh:
     //   Padang: II Desa (63/120)
@@ -2082,5 +2087,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit };
 })();

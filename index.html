@@ -6,7 +6,7 @@
   <title>Lintas Kota</title>
   <meta name="description" content="Game strategi transportasi: hubungkan kota-kota di kepulauan dengan jalur kereta.">
   <!-- ?v=... = penanda versi supaya browser tidak memakai CSS/JS lama dari cache; ganti setiap kali file berubah -->
-  <link rel="stylesheet" href="style.css?v=4e92f22">
+  <link rel="stylesheet" href="style.css?v=d5a172a">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -76,7 +76,7 @@
       <thead>
         <tr>
           <th data-sort="default" title="Urutan bawaan: populasi, lalu level, lalu okupansi">No</th>
-          <th data-sort="level" title="Level kota (0 = Kampung/belum terhubung, I = Dusun … VIII = Kapital)">Lv</th>
+          <th data-sort="level" title="Level kota (0 = Kampung/belum terhubung, I = Dusun … X = Kapital)">Lv</th>
           <th data-sort="name" title="Nama kota">Kota</th>
           <th data-sort="lines" title="Jalur yang melewati kota ini (urut: jumlah jalur)">Jalur</th>
           <th data-sort="wait" title="Jumlah penumpang menunggu">Tunggu</th>
@@ -105,7 +105,7 @@
     </table>
     </div>
     <p class="cp-note" id="cp-note-lines" hidden>Okupansi = penumpang di dalam semua kereta jalur itu dibanding total kapasitasnya, saat ini. Klik judul kolom untuk mengurutkan; klik baris untuk memilih jalur.</p>
-    <p class="cp-note" id="cp-note-cities">Level: 0 Kampung (belum terhubung) · I Dusun · II Desa · III Distrik · IV Kota Kecil · V Kota Besar · VI Metropolitan · VII Megapolitan · VIII Kapital. Klik baris untuk menuju kota.</p>
+    <p class="cp-note" id="cp-note-cities">Level: 0 Kampung (belum terhubung) · I Dusun · II Desa · III Distrik · IV Kota Kecil · V Kotamadya · VI Kota Besar · VII Metropolitan · VIII Megapolitan · IX Kota Global (maks 3) · X Kapital (maks 1). Klik baris untuk menuju kota.</p>
   </aside>
 
   <!-- grafik pertumbuhan populasi (menutupi peta, di bawah HUD atas; diperbarui live selama permainan berjalan) -->
@@ -150,7 +150,7 @@
     </div>
   </div>
 
-  <script src="geo.js?v=4e92f22"></script>
-  <script src="game.js?v=4e92f22"></script>
+  <script src="geo.js?v=d5a172a"></script>
+  <script src="game.js?v=d5a172a"></script>
 </body>
 </html>
