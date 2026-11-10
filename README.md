@@ -72,7 +72,7 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   - Titik gelap: penumpang yang sudah punya rute.
   - Titik merah: tujuannya belum terhubung ke jaringan.
 - **Pendapatan**: tarif = $10 + $5 × jumlah stasiun yang dilewati.
-- **Biaya perawatan harian** (ditagih setiap pergantian hari): kereta = jumlah kereta × $20 + total kapasitas kereta × $2; jalur = total panjang semua jalur (km) × $1. Notifikasinya menampilkan rinciannya, misalnya "perawatan −$600 (kereta $224 + jalur $376)".
+- **Biaya perawatan harian** (ditagih setiap pergantian hari): kereta = jumlah kereta × $20 + total kapasitas kereta × $2; jalur = total panjang semua jalur (km) ÷ 100. Notifikasinya menampilkan rinciannya, misalnya "perawatan −$228 (kereta $224 + jalur $4)".
 - **Status kota** (tampil di tooltip kota):
   - **Dikunjungi**: jumlah penumpang yang turun di kota itu, baik yang sampai tujuan maupun yang transit pindah jalur. Penumpang yang hanya lewat di dalam kereta tidak dihitung. Ini syarat naik level (lihat tabel di bawah). Kota transit yang ramai naik level lebih cepat.
   - **Populasi**: jumlah penumpang yang diantar ke kota itu sebagai tujuan akhir. Populasi semua kota dijumlahkan menjadi **populasi negara** (HUD atas), yang jadi skor permainan.
