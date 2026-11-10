@@ -12,7 +12,7 @@ window.LINTAS_GEO = (() => {
     sulawesi:     { name: 'Sulawesi',             bounds: [118.4, 125.5, -5.9, 2.0] },
     papua:        { name: 'Papua',                bounds: [130.6, 141.5, -9.3, 0.1] },
     kalimantan:   { name: 'Kalimantan',           bounds: [108.6, 119.4, -4.4, 4.6] },
-    nusatenggara: { name: 'Bali & Nusa Tenggara', bounds: [114.3, 127.5, -10.6, -7.9] },
+    nusatenggara: { name: 'Bali & Nusa Tenggara', short: 'Nusa Tenggara', bounds: [114.3, 127.5, -10.6, -7.9] },
     maluku:       { name: 'Maluku',               bounds: [125.7, 131.0, -4.0, 2.4] },
   };
   // Peta 1 = Sumatra, tiap peta berikutnya menambah satu wilayah.

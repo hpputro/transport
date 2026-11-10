@@ -310,6 +310,8 @@
   const levelCities = (level) => ALL_CITIES.filter((c) => levelRegions(level).includes(c.region));
   const mapCities = (level) => levelCities(level).length;
   const regionName = (key) => (GEO.REGIONS[key] ? GEO.REGIONS[key].name : 'Peta Bebas');
+  /** Teks tombol pindah peta: "Peta 6: Nusa Tenggara" (nama wilayah yang ditambahkan peta itu, versi singkat). */
+  const mapButtonLabel = (level) => { const r = GEO.REGIONS[GEO.LEVEL_REGIONS[level - 1]]; return `Peta ${level}: ${r.short || r.name}`; };
   /** Nama peta: "Sumatra", "Sumatra + Jawa", ... (dipendekkan untuk peta besar). */
   function levelTitle(level) {
     const names = levelRegions(level).map(regionName);
@@ -852,7 +854,7 @@
     const last = S.level >= LAST_MAP;
     if (!last) saveNum('map', Math.max(loadNum('map'), S.level + 1));
     const actions = [];
-    if (!last) actions.push({ label: `Lanjut ke Peta ${S.level + 1}: +${regionName(GEO.LEVEL_REGIONS[S.level])} (${mapCities(S.level + 1)} kota)`, primary: true, fn: () => startMap(S.level + 1) });
+    if (!last) actions.push({ label: mapButtonLabel(S.level + 1), primary: true, fn: () => startMap(S.level + 1) });
     actions.push({ label: 'Tetap di peta ini', primary: last, fn: stayRelaxed });
     if (last) actions.push({ label: 'Main lagi dari Peta 1', fn: () => startMap(1) });
     showResult({
@@ -1467,7 +1469,7 @@
       $('s-conn').title = `Kota terhubung dalam satu jaringan. ${S.cities.length} dari ${S.target} kota sudah muncul.`;
       $('s-sat-lbl').textContent = S.relaxed ? 'Kepuasan (aman)' : 'Kepuasan';
       $('b-next').hidden = !(S.relaxed && !S.free && S.level < LAST_MAP);
-      $('b-next').textContent = `Peta ${S.level + 1}: +${regionName(GEO.LEVEL_REGIONS[S.level] || GEO.LEVEL_REGIONS[0])} →`;
+      $('b-next').textContent = mapButtonLabel(Math.min(S.level + 1, LAST_MAP));
       $('s-day').textContent = S.day;
       const m = $('s-money');
       m.textContent = `$${Math.round(S.money)}`;
@@ -1814,7 +1816,7 @@
   const reached = Math.min(LAST_MAP, loadNum('map'));
   if (reached > 1) {
     $('b-continue').hidden = false;
-    $('b-continue').textContent = `Lanjut Peta ${reached}: ${levelTitle(reached)} (${mapCities(reached)} kota)`;
+    $('b-continue').textContent = mapButtonLabel(reached);
     $('b-start').classList.remove('primary');
   }
   const bests = [];
