@@ -22,6 +22,8 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
 | 6 | + Bali & Nusa Tenggara | 36 | 9 | $6500 |
 | 7 | + Maluku | 38 (semua) | 10 (semua) | $7500 |
 
+**Peta Bebas** (tombol di layar pembuka): pulau-pulau acak yang berbeda setiap permainan (bukan peta Indonesia), dengan ke-38 ibu kota provinsi muncul bertahap di posisi acak, menyebar dari tengah peta. Aturan jalur dan kas awal sama dengan Peta 7 (maks. 10 jalur, $7.500). Menang kalau semua 38 kota terhubung; setelah itu bisa main lagi dengan peta acak baru atau tetap di peta ini (mode santai). Rekornya disimpan terpisah.
+
 **Urutan munculnya kota**
 - Setiap peta dimulai di wilayah yang baru ditambahkan: kota pertama acak, lalu kota terdekat di pulau yang sama, sampai 3 kota. Peta 7 dimulai dengan 2 kota karena Maluku hanya punya 2 ibu kota.
 - Setelah itu, setiap kota baru dipilih acak dari dua kemungkinan, sehingga pulau-pulau bisa berselang-seling:

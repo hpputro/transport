@@ -70,7 +70,8 @@
 
   let S = null;              // state permainan
   let terrainCanvas = null;
-  let TERRAIN = null;        // grid medan Indonesia (dibangun sekali saat halaman dimuat)
+  let TERRAIN = null;        // grid medan yang sedang dipakai
+  const INDO = { terrain: null, canvas: null }; // medan & gambar peta Indonesia (dibuat sekali saat halaman dimuat)
   const view = {
     scale: 1, ox: 0, oy: 0, dpr: 1, fit: 1, zoom: 1, cx: W / 2, cy: H / 2,
     area: { x: 0, y: 0, w: 1, h: 1 }, needsInit: true,
@@ -164,7 +165,11 @@
         } else type[i] = WATER;
       }
     }
-    // jarak tiap sel laut ke daratan terdekat (untuk gradasi warna laut dangkal → dalam)
+    return { type, shade, depth: waterDepth(type) };
+  }
+
+  /** Jarak tiap sel laut ke daratan terdekat (untuk gradasi warna laut dangkal → dalam). */
+  function waterDepth(type) {
     const depth = new Uint16Array(GW * GH).fill(65535);
     const q = [];
     for (let i = 0; i < type.length; i++) if (type[i] !== WATER) { depth[i] = 0; q.push(i); }
@@ -176,7 +181,66 @@
         if (depth[j] > depth[i] + 1) { depth[j] = depth[i] + 1; q.push(j); }
       }
     }
-    return { type, shade, depth };
+    return depth;
+  }
+
+  // ---- Peta Bebas: pulau-pulau acak (bukan peta Indonesia) ----
+  const FREE_BOUNDS = { x0: 0, y0: 0, x1: 2600, y1: 1600 }; // bagian dunia yang dipakai Peta Bebas
+
+  /** Medan acak dari noise di dalam FREE_BOUNDS (tepi cenderung laut → kepulauan); di luarnya laut. */
+  function genFreeTerrain(rng) {
+    const bw = FREE_BOUNDS.x1 / CELL, bh = FREE_BOUNDS.y1 / CELL;
+    const n1 = makeNoise(rng, 5, 3), n2 = makeNoise(rng, 11, 7), n3 = makeNoise(rng, 26, 16);
+    const noise = makeNoise(rng, 60, 24);
+    const elev = new Float32Array(GW * GH);
+    const shade = new Float32Array(GW * GH);
+    const inside = [];
+    for (let cy = 0; cy < GH; cy++) {
+      for (let cx = 0; cx < GW; cx++) {
+        const i = cy * GW + cx;
+        shade[i] = noise(cx / GW, cy / GH);
+        if (cx >= bw || cy >= bh) { elev[i] = -1; continue; }
+        const u = (cx + 0.5) / bw, v = (cy + 0.5) / bh;
+        let e = 0.55 * n1(u, v) + 0.3 * n2(u, v) + 0.15 * n3(u, v);
+        e -= 0.5 * Math.pow(Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2, 3);
+        elev[i] = e;
+        inside.push(e);
+      }
+    }
+    inside.sort((a, b) => a - b);
+    const waterLvl = inside[Math.floor(inside.length * 0.4)], mountLvl = inside[Math.floor(inside.length * 0.9)];
+    const type = new Uint8Array(GW * GH);
+    for (let i = 0; i < type.length; i++) type[i] = elev[i] < waterLvl ? WATER : elev[i] > mountLvl ? MOUNT : LAND;
+    return { type, shade, depth: waterDepth(type) };
+  }
+
+  function landAround(x, y, r) {
+    for (let a = 0; a < 8; a++) {
+      const ang = (a * Math.PI) / 4;
+      if (terrainAt(x + Math.cos(ang) * r, y + Math.sin(ang) * r) === WATER) return false;
+    }
+    return true;
+  }
+
+  /** Kota berikutnya di Peta Bebas: nama ibu kota acak, posisi acak di daratan yang menyebar dari tengah peta. */
+  function freeCityDef() {
+    const left = S.remaining;
+    if (!left.length) return null;
+    const def = left[Math.floor(S.rng() * left.length)];
+    const B = FREE_BOUNDS, n = S.cities.length;
+    const mx = (B.x0 + B.x1) / 2, my = (B.y0 + B.y1) / 2;
+    // makin lama gagal, syarat jarak antarkota dilonggarkan supaya 38 kota selalu muat
+    for (let tries = 0; tries < 2500; tries++) {
+      const radius = (n < 3 ? 300 : 380 + n * 55) + tries * 2;
+      const minD = tries < 400 ? 160 : tries < 900 ? 120 : tries < 1600 ? 90 : 70;
+      const x = B.x0 + 80 + S.rng() * (B.x1 - B.x0 - 160), y = B.y0 + 80 + S.rng() * (B.y1 - B.y0 - 160);
+      if (Math.hypot(x - mx, y - my) > radius) continue;
+      const ty = terrainAt(x, y);
+      if (!(ty === LAND || (tries >= 1600 && ty === MOUNT)) || !landAround(x, y, 14)) continue;
+      if (S.cities.some((c) => Math.hypot(c.x - x, c.y - y) < minD)) continue;
+      return { name: def.name, region: 'free', x, y };
+    }
+    return null;
   }
 
   function terrainAt(x, y) {
@@ -242,7 +306,7 @@
   const levelRegions = (level) => GEO.LEVEL_REGIONS.slice(0, level);
   const levelCities = (level) => ALL_CITIES.filter((c) => levelRegions(level).includes(c.region));
   const mapCities = (level) => levelCities(level).length;
-  const regionName = (key) => GEO.REGIONS[key].name;
+  const regionName = (key) => (GEO.REGIONS[key] ? GEO.REGIONS[key].name : 'Peta Bebas');
   /** Nama peta: "Sumatra", "Sumatra + Jawa", ... (dipendekkan untuk peta besar). */
   function levelTitle(level) {
     const names = levelRegions(level).map(regionName);
@@ -307,9 +371,9 @@
 
   /** Munculkan kota berikutnya. */
   function spawnCity() {
-    const def = nextCityDef();
+    const def = S.free ? freeCityDef() : nextCityDef();
     if (!def) return null;
-    S.remaining = S.remaining.filter((d) => d !== def);
+    S.remaining = S.remaining.filter((d) => d.name !== def.name);
     const city = {
       id: S.cities.length, name: def.name, region: def.region, label: def.label, x: def.x, y: def.y,
       // kota baru = Kampung (level 0) sampai tersambung jalur
@@ -619,9 +683,14 @@
   /** Input & simulasi berhenti saat belum mulai, kalah, atau sedang memilih setelah menang. */
   const blocked = () => !S || !S.started || S.over || S.winChoice;
 
-  function newGame(seed, level) {
+  /**
+   * Mulai permainan baru. free = Peta Bebas: pulau acak dengan ke-38 ibu kota di posisi acak;
+   * aturan jalur & kas awal mengikuti peta terakhir (Peta 7).
+   */
+  function newGame(seed, level, free = false) {
+    if (free) level = LAST_MAP;
     S = {
-      seed, rng: mulberry32(seed), level, target: mapCities(level),
+      seed, rng: mulberry32(seed), level, free, target: free ? ALL_CITIES.length : mapCities(level),
       t: 0, day: 1, money: START_MONEY + (level - 1) * 1000, earned: 0, population: 0, satisfaction: 100,
       cities: [], lines: [], trains: [], dist: [], segMap: new Map(), connected: [], largest: 0,
       nextCityAt: 14, speed: 1, paused: false, started: false, over: false,
@@ -629,12 +698,16 @@
       selected: null, building: false, buildEnd: 'tail', unlocked: 2, // jalur yang bisa dipakai (diperbarui di update)
       particles: [],
     };
-    S.remaining = levelCities(level).slice(); // kota peta ini yang belum muncul
+    // kota peta ini yang belum muncul (Peta Bebas: hanya namanya, posisinya diacak saat muncul)
+    S.remaining = free ? ALL_CITIES.map((c) => ({ name: c.name })) : levelCities(level).slice();
     // undian 50-50 untuk aturan menyeberang yang punya pengecualian (lihat nextCityDef)
     S.spreadPlan = GEO.SPREAD.map((rule) => (rule.ifPresent ? (S.rng() < 0.5 ? 'before' : 'after') : null));
-    view.bounds = levelBounds(level);
+    // medan: Peta Bebas dibuat acak tiap permainan; peta Indonesia memakai medan yang sudah dibuat sekali
+    if (free) { TERRAIN = genFreeTerrain(S.rng); renderTerrain(); }
+    else if (TERRAIN !== INDO.terrain) { TERRAIN = INDO.terrain; terrainCanvas = INDO.canvas; }
+    view.bounds = free ? { ...FREE_BOUNDS } : levelBounds(level);
     // kota awal: maks. 3, semuanya di pulau baru (Peta 7 / Maluku hanya punya 2)
-    const startCount = Math.min(3, S.remaining.filter((d) => d.region === GEO.LEVEL_REGIONS[level - 1]).length);
+    const startCount = free ? 3 : Math.min(3, S.remaining.filter((d) => d.region === GEO.LEVEL_REGIONS[level - 1]).length);
     for (let i = 0; i < startCount; i++) spawnCity();
     renderChips();
     updatePanel();
@@ -656,7 +729,7 @@
       if (S.t >= S.nextCityAt) {
         const c = spawnCity();
         S.nextCityAt = S.t + 15 + S.cities.length * 0.6;
-        if (c) toast(`Kota baru: ${c.name}, ${regionName(c.region)} (${S.cities.length}/${S.target})`, 'good');
+        if (c) toast(S.free ? `Kota baru: ${c.name} (${S.cities.length}/${S.target})` : `Kota baru: ${c.name}, ${regionName(c.region)} (${S.cities.length}/${S.target})`, 'good');
         else S.target = S.cities.length; // peta sudah terlalu padat; target disesuaikan
       }
     }
@@ -727,9 +800,26 @@
     resize();
   }
 
+  /** Kunci rekor & label peta yang sedang dimainkan. */
+  const recordKey = () => (S.free ? 'free' : S.level);
+
   function win() {
     S.won = true;
     S.winChoice = true;
+    if (S.free) {
+      const best = recordBest('free', S.population);
+      showResult({
+        title: 'Peta Bebas selesai!',
+        kind: 'good',
+        reason: `Semua ${S.cities.length} kota terhubung dalam satu jaringan. Kalau tetap di peta ini, kepuasan selalu penuh dan kamu tidak bisa kalah.`,
+        stats: [['Populasi negara', S.population], ['Rekor populasi Peta Bebas', best], ['Hari', S.day]],
+        actions: [
+          { label: 'Main lagi Peta Bebas (peta acak baru)', primary: true, fn: () => startMap(0, true) },
+          { label: 'Tetap di peta ini', fn: stayRelaxed },
+        ],
+      });
+      return;
+    }
     const best = recordBest(S.level, S.population);
     const last = S.level >= LAST_MAP;
     if (!last) saveNum('map', Math.max(loadNum('map'), S.level + 1));
@@ -760,7 +850,7 @@
     S.over = true;
     // kota yang ikut menurunkan kepuasan, dari yang paling parah
     const full = S.cities.filter((c) => satisfactionDrain(c) > 0).sort((a, b) => satisfactionDrain(b) - satisfactionDrain(a));
-    const best = recordBest(S.level, S.population);
+    const best = recordBest(recordKey(), S.population);
     const names = full.slice(0, 4).map((c) => `${c.name} (${c.wait.length}/${SIZE_CAP[c.size]})`).join(', ');
     showResult({
       title: 'Jaringan kewalahan!',
@@ -768,20 +858,25 @@
       reason: full.length
         ? `Kota penuh: ${names}${full.length > 4 ? `, +${full.length - 4} lainnya` : ''}. Kota bertanda merah di peta.`
         : 'Kepuasan warga habis.',
-      stats: [['Populasi negara', S.population], [`Rekor populasi peta ${S.level}`, best], ['Kota terhubung', `${Math.max(0, S.largest)}/${S.target}`]],
-      actions: [{ label: `Ulangi Peta ${S.level}`, primary: true, fn: () => startMap(S.level) }],
+      stats: [['Populasi negara', S.population], [`Rekor populasi ${S.free ? 'Peta Bebas' : `peta ${S.level}`}`, best], ['Kota terhubung', `${Math.max(0, S.largest)}/${S.target}`]],
+      actions: [{
+        label: S.free ? 'Main lagi Peta Bebas (peta acak baru)' : `Ulangi Peta ${S.level}`,
+        primary: true,
+        fn: () => startMap(S.level, S.free),
+      }],
     });
     if (full.length) { view.cx = full[0].x; view.cy = full[0].y; applyView(); }
   }
 
-  function startMap(level) {
-    newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, level);
+  function startMap(level, free = false) {
+    newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, level, free);
     view.needsInit = true;
     S.started = true;
     $('overlay').hidden = true;
     hideResult();
     setSpeed(1);
     refreshUi();
+    if (free) { toast(`Peta Bebas: pulau acak · hubungkan ${S.target} kota dalam satu jaringan`); return; }
     const added = level > 1 ? `+${regionName(GEO.LEVEL_REGIONS[level - 1])}` : regionName(GEO.LEVEL_REGIONS[0]);
     toast(`Peta ${level}: ${added} · hubungkan ${S.target} kota dalam satu jaringan`);
   }
@@ -1027,6 +1122,7 @@
     toast(`Peta 1: Sumatra · hubungkan ${S.target} kota · klik sebuah kota untuk mulai membangun jalur`);
   });
   $('b-continue').addEventListener('click', () => startMap(Math.min(LAST_MAP, loadNum('map'))));
+  $('b-free').addEventListener('click', () => startMap(0, true));
   $('b-next').addEventListener('click', () => { if (S.won && S.level < LAST_MAP) startMap(S.level + 1); });
 
   // ================= UI DOM =================
@@ -1330,17 +1426,19 @@
       cityPanel.last = performance.now();
       if (cityPanel.mode === 'lines') renderLinePanel(); else renderCityPanel();
     }
-    const key = [S.level, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.population, Math.round(S.satisfaction)].join('|');
+    const key = [S.level, S.free, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.population, Math.round(S.satisfaction)].join('|');
     if (key !== lastHud) {
       lastHud = key;
       const newest = regionName(GEO.LEVEL_REGIONS[S.level - 1]);
-      $('s-map').textContent = `Peta ${S.level} · ${S.level > 1 ? '+' : ''}${newest}${S.relaxed ? ' · santai' : ''}`;
-      $('s-map').title = levelRegions(S.level).map(regionName).join(' + ');
+      $('s-map').textContent = S.free
+        ? `Peta Bebas${S.relaxed ? ' · santai' : ''}`
+        : `Peta ${S.level} · ${S.level > 1 ? '+' : ''}${newest}${S.relaxed ? ' · santai' : ''}`;
+      $('s-map').title = S.free ? 'Pulau acak dengan 38 ibu kota provinsi' : levelRegions(S.level).map(regionName).join(' + ');
       // jumlah kota dalam jaringan terbesar / target kota peta ini
       $('s-conn').textContent = `${S.largest}/${S.target} kota`;
       $('s-conn').title = `Kota terhubung dalam satu jaringan. ${S.cities.length} dari ${S.target} kota sudah muncul.`;
       $('s-sat-lbl').textContent = S.relaxed ? 'Kepuasan (aman)' : 'Kepuasan';
-      $('b-next').hidden = !(S.relaxed && S.level < LAST_MAP);
+      $('b-next').hidden = !(S.relaxed && !S.free && S.level < LAST_MAP);
       $('b-next').textContent = `Peta ${S.level + 1}: +${regionName(GEO.LEVEL_REGIONS[S.level] || GEO.LEVEL_REGIONS[0])} →`;
       $('s-day').textContent = S.day;
       const m = $('s-money');
@@ -1680,8 +1778,9 @@
     requestAnimationFrame(frame);
   }
 
-  TERRAIN = buildTerrain();
+  INDO.terrain = TERRAIN = buildTerrain();
   renderTerrain();
+  INDO.canvas = terrainCanvas;
   applyPanelUi();
   newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, 1);
   const reached = Math.min(LAST_MAP, loadNum('map'));
@@ -1692,6 +1791,8 @@
   }
   const bests = [];
   for (let l = 1; l <= LAST_MAP; l++) { const b = loadNum('best.' + l); if (b) bests.push(`Peta ${l}: ${b}`); }
+  const bestFree = loadNum('best.free');
+  if (bestFree) bests.push(`Peta Bebas: ${bestFree}`);
   if (bests.length) $('best-start').textContent = `Rekor populasi negara · ${bests.join(' · ')}`;
   resize();
   requestAnimationFrame(frame);
