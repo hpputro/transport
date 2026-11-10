@@ -12,14 +12,17 @@
   const LAND = 0, WATER = 1, MOUNT = 2, FOREIGN = 3;
 
   // 10 warna jalur/kereta: Maroon, Red, Pink, Yellow, Orange, Lime, DarkGreen, Skyblue, Navy, Violet
-  const LINE_COLORS = ['#8b1e3f', '#e63946', '#ec5fa8', '#e8b400', '#f37021', '#7cc21c', '#1e7a3a', '#3aa6e0', '#1f3a8a', '#8e44ad'];
-  const LINE_NAMES = ['Marun', 'Merah', 'Merah Muda', 'Kuning', 'Oranye', 'Hijau Muda', 'Hijau Tua', 'Biru Langit', 'Biru Dongker', 'Ungu'];
+  // 15 jalur: Maroon, Red, Pink, Ochre, Orange, Lemon, Lime, Green, DarkGreen, SkyBlue, Blue, Navy, Lilac, Violet, Plum
+  const LINE_COLORS = ['#8b1e3f', '#e63946', '#ec5fa8', '#c98a14', '#f37021', '#f0d000', '#9acd1c', '#2eaa4a', '#1e6b34',
+    '#3aa6e0', '#2563eb', '#1a2d6b', '#b48ad8', '#7b3fb5', '#8e4585'];
+  const LINE_NAMES = ['Marun', 'Merah', 'Merah Muda', 'Oker', 'Oranye', 'Lemon', 'Hijau Muda', 'Hijau', 'Hijau Tua',
+    'Biru Langit', 'Biru', 'Biru Dongker', 'Lila', 'Ungu', 'Plum'];
   // Sebuah jalur bisa dipakai kalau DUA syarat terpenuhi:
-  //  1. peta: Peta 1 = maks. 4 jalur, tiap peta +1, Peta 7 = semua (10)
+  //  1. peta: Peta 1 = maks. 4 jalur, tiap peta +2, Peta 7 = semua (15)
   //  2. populasi negara: jalur ke-(i+1) butuh UNLOCK_AT[i]
-  const UNLOCK_AT = [0, 0, 20, 40, 120, 250, 500, 1000, 2000, 4000];
-  const linesForLevel = (level) => Math.min(LINE_COLORS.length, 3 + level);
-  const levelForLine = (i) => Math.max(1, i - 2); // jalur ke-(i+1) tersedia mulai peta ini
+  const UNLOCK_AT = [0, 0, 20, 40, 120, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000];
+  const linesForLevel = (level) => Math.min(LINE_COLORS.length, 2 + 2 * level);
+  const levelForLine = (i) => (i < 4 ? 1 : Math.ceil((i - 3) / 2) + 1); // jalur ke-(i+1) tersedia mulai peta ini
   const availableLines = () => {
     let n = 0;
     while (n < linesForLevel(S.level) && S.population >= UNLOCK_AT[n]) n++;

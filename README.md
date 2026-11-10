@@ -15,14 +15,14 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
 | Peta | Wilayah baru | Jumlah kota | Jalur maksimal | Kas awal |
 |---|---|---|---|---|
 | 1 | Sumatra | 10 | 4 | $1500 |
-| 2 | + Jawa | 16 | 5 | $2500 |
-| 3 | + Sulawesi | 22 | 6 | $3500 |
-| 4 | + Papua | 28 | 7 | $4500 |
-| 5 | + Kalimantan | 33 | 8 | $5500 |
-| 6 | + Bali & Nusa Tenggara | 36 | 9 | $6500 |
-| 7 | + Maluku | 38 (semua) | 10 (semua) | $7500 |
+| 2 | + Jawa | 16 | 6 | $2500 |
+| 3 | + Sulawesi | 22 | 8 | $3500 |
+| 4 | + Papua | 28 | 10 | $4500 |
+| 5 | + Kalimantan | 33 | 12 | $5500 |
+| 6 | + Bali & Nusa Tenggara | 36 | 14 | $6500 |
+| 7 | + Maluku | 38 (semua) | 15 (semua) | $7500 |
 
-**Peta Bebas** (tombol di layar pembuka): pulau-pulau acak yang berbeda setiap permainan (bukan peta Indonesia), dengan ke-38 ibu kota provinsi muncul bertahap di posisi acak, menyebar dari tengah peta. Aturan jalur dan kas awal sama dengan Peta 7 (maks. 10 jalur, $7.500). Menang kalau semua 38 kota terhubung; setelah itu bisa main lagi dengan peta acak baru atau tetap di peta ini (mode santai). Rekornya disimpan terpisah.
+**Peta Bebas** (tombol di layar pembuka): pulau-pulau acak yang berbeda setiap permainan (bukan peta Indonesia), dengan ke-38 ibu kota provinsi muncul bertahap di posisi acak, menyebar dari tengah peta. Aturan jalur dan kas awal sama dengan Peta 7 (maks. 15 jalur, $7.500). Menang kalau semua 38 kota terhubung; setelah itu bisa main lagi dengan peta acak baru atau tetap di peta ini (mode santai). Rekornya disimpan terpisah.
 
 **Urutan munculnya kota**
 - Setiap peta dimulai di wilayah yang baru ditambahkan: kota pertama acak, lalu kota terdekat di pulau yang sama, sampai 3 kota. Peta 7 dimulai dengan 2 kota karena Maluku hanya punya 2 ibu kota.
@@ -99,7 +99,7 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   - Kampung tetap menghasilkan penumpang (60% dari laju normal). Kapasitasnya tercatat 0, tetapi untuk perhitungan kepuasan Kampung dianggap berkapasitas maksimal (kapasitas Kapital, 1231), jadi praktis tidak menurunkan kepuasan. Level tidak turun lagi kalau jalurnya kemudian dibongkar.
   - Kampung, Dusun, dan Desa: penumpang menunggu ditampilkan sebagai titik di samping kota.
   - Mulai Distrik: ditampilkan sebagai angka di dalam lingkaran (merah kalau melebihi kapasitas). Titik merah kecil di tepi lingkaran berarti ada penumpang yang tujuannya belum terjangkau.
-- **Jalur**: ada 10 jalur dengan warna Marun, Merah, Merah Muda, Kuning, Oranye, Hijau Muda, Hijau Tua, Biru Langit, Biru Dongker, dan Ungu. Sebuah jalur bisa dipakai kalau dua syarat terpenuhi: (1) peta: Peta 1 maksimal 4 jalur, tiap peta berikutnya +1, di Peta 7 kesepuluh jalur tersedia; (2) populasi negara: jalur ke-1 sampai ke-10 butuh 0, 0, 20, 40, 120, 250, 500, 1.000, 2.000, 4.000.
+- **Jalur**: ada 15 jalur dengan warna Marun, Merah, Merah Muda, Oker, Oranye, Lemon, Hijau Muda, Hijau, Hijau Tua, Biru Langit, Biru, Biru Dongker, Lila, Ungu, dan Plum. Sebuah jalur bisa dipakai kalau dua syarat terpenuhi: (1) peta: Peta 1 maksimal 4 jalur, tiap peta berikutnya +2, di Peta 7 kelima belas jalur tersedia; (2) populasi negara: jalur ke-1 sampai ke-15 butuh 0, 0, 20, 40, 120, 250, 500, 1.000, 2.000, 4.000, 8.000, 16.000, 32.000, 64.000, 128.000. Di HP, deretan bulatan jalur bisa digeser ke samping.
 - **Kepuasan & kalah**: kota yang penumpang menunggunya melebihi kapasitas (lingkaran merah berkedip) menurunkan kepuasan, dihitung dari rasio `menunggu ÷ kapasitas`:
   - rasio ≤ 1 → tidak turun;
   - rasio > 1 → turun `0,7 + 2 × (rasio − 1)` per detik, maksimal 3 per detik per kota (dijumlahkan untuk semua kota);

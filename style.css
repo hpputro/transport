@@ -287,7 +287,10 @@ button.small { padding: 6px 12px; font-size: 13px; }
   #hud-top { column-gap: 8px; }
   .speed { gap: 3px; }
   .speed button { min-width: 30px; min-height: 30px; padding: 4px 5px; }
-  #chips { gap: 5px; }
+  /* 15 bulatan jalur: satu baris yang bisa digeser ke samping (sisakan ruang untuk tombol V di kanan) */
+  #chips { gap: 5px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 3px 2px; margin: -3px 0; max-width: calc(100vw - 80px); }
+  #chips::-webkit-scrollbar { display: none; }
+  #chips .chip { flex: 0 0 auto; }
   .chip { width: 30px; height: 30px; font-size: 12px; border-width: 2px; }
   button { font-size: 12px; padding: 6px 9px; min-height: 32px; }
   /* panel jalur: satu baris yang bisa digeser ke samping, supaya peta tidak tertutup */
