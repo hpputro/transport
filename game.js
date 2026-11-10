@@ -521,8 +521,8 @@
     return (len / PX_PER_DEG) * 111;
   }
 
-  /** Jumlah kereta maksimal sebuah jalur: 1 kereta per 500 km rel (dibulatkan ke bawah), minimal 1. */
-  const maxTrains = (L) => Math.max(1, Math.floor(lineKm(L) / KM_PER_TRAIN));
+  /** Jumlah kereta maksimal sebuah jalur: 1 kereta per 500 km rel (dibulatkan ke atas), minimal 1. */
+  const maxTrains = (L) => Math.max(1, Math.ceil(lineKm(L) / KM_PER_TRAIN));
 
   /**
    * Biaya perawatan harian:
