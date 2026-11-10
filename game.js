@@ -799,6 +799,7 @@
 
   /** Tampilkan panel hasil di bawah layar (peta tetap terlihat dan bisa digeser/zoom). */
   function showResult({ title, kind, reason, stats, actions }) {
+    closeChart(); // panel menang/kalah ada di panel bawah, jangan tertutup grafik
     S.building = false;
     if (bottomPanel.collapsed) setBottomCollapsed(false); // panel hasil ada di panel bawah
     pruneStubLines();
@@ -1286,7 +1287,8 @@
   const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6']; // urutan tetap
   const OTHER_COLOR = '#898781';
   const fmt = (v) => Math.round(v).toLocaleString('id-ID');
-  const chart = { open: false, wasPaused: false, data: null };
+  const chart = { open: false, data: null, hover: null, lastRender: 0, slots: [], slotsFor: null };
+  const CHART_REFRESH = 0.25; // detik (waktu nyata) antar-pembaruan grafik live
 
   /** Data grafik: titik harian + titik "sekarang"; 7 kota terbesar + "Lainnya". */
   function chartData() {
@@ -1296,7 +1298,13 @@
     const xs = pts.map((p) => p.x);
     const ranked = S.cities.slice().sort((a, b) => b.pop - a.pop || a.name.localeCompare(b.name, 'id'));
     const top = ranked.slice(0, SERIES_COLORS.length), rest = ranked.slice(SERIES_COLORS.length);
-    const series = top.map((c, k) => ({ name: c.name, color: SERIES_COLORS[k], city: c, values: pts.map((p) => p.pops[c.id] || 0) }));
+    // warna melekat pada kota, bukan pada peringkat: kota yang tetap di 7 besar mempertahankan warnanya,
+    // kota yang baru masuk mengambil warna yang dilepas kota yang keluar
+    if (chart.slotsFor !== S) { chart.slotsFor = S; chart.slots = SERIES_COLORS.map(() => null); }
+    const topIds = top.map((c) => c.id);
+    chart.slots = chart.slots.map((id) => (topIds.includes(id) ? id : null));
+    for (const id of topIds) if (!chart.slots.includes(id)) chart.slots[chart.slots.indexOf(null)] = id;
+    const series = top.map((c) => ({ name: c.name, color: SERIES_COLORS[chart.slots.indexOf(c.id)], city: c, values: pts.map((p) => p.pops[c.id] || 0) }));
     if (rest.length) {
       const restIds = rest.map((c) => c.id);
       series.push({ name: `Lainnya (${rest.length} kota)`, color: OTHER_COLOR, other: rest, values: pts.map((p) => restIds.reduce((a, id) => a + (p.pops[id] || 0), 0)) });
@@ -1391,22 +1399,19 @@
       tip.style.left = Math.max(4, tx) + 'px';
       tip.style.top = Math.min(window.innerHeight - tip.offsetHeight - 4, Math.max(4, ev.clientY - tip.offsetHeight / 2)) + 'px';
     };
-    hit.addEventListener('pointermove', show);
-    hit.addEventListener('pointerdown', show);
-    hit.addEventListener('pointerleave', hide);
+    // posisi kursor diingat, supaya tooltip tetap tampil (dan ikut berubah) saat grafik digambar ulang
+    const track = (ev) => { chart.hover = { clientX: ev.clientX, clientY: ev.clientY }; show(chart.hover); };
+    hit.addEventListener('pointermove', track);
+    hit.addEventListener('pointerdown', track);
+    hit.addEventListener('pointerleave', () => { chart.hover = null; hide(); });
+    if (chart.hover) show(chart.hover);
   }
 
   function renderCharts() {
     const d = chartData();
     chart.data = d;
-    const n = d.total.length;
+    const n = d.xs.length;
     $('ch-sub').textContent = `${S.free ? 'Peta Bebas' : `Peta ${S.level}`} · hari ${S.day} · ${S.cities.length}/${S.target} kota`;
-    $('ch-total').textContent = fmt(d.total[n - 1]);
-    // perubahan dibanding awal hari ini
-    const today = S.history[S.history.length - 1];
-    const delta = d.total[n - 1] - today.total;
-    $('ch-delta').textContent = `+${fmt(delta)} sejak awal hari ${today.x}`;
-    lineChart($('ch-plot-total'), d.xs, [{ name: 'Populasi negara', color: SERIES_COLORS[0], values: d.total }]);
     // legenda (selalu ada untuk ≥ 2 seri)
     const leg = $('ch-legend');
     leg.textContent = '';
@@ -1433,31 +1438,38 @@
     }
   }
 
+  /** Grafik menutupi peta tapi tidak HUD atas, jadi kecepatan / jeda tetap bisa diatur. */
+  function placeChart() { $('chart-overlay').style.top = $('hud-top').offsetHeight + 'px'; }
   function openChart() {
     chart.open = true;
-    chart.wasPaused = S.paused;
-    S.paused = true; // permainan dijeda selama grafik terbuka
+    chart.hover = null;
     $('chart-overlay').hidden = false;
-    $('b-chart').blur();
+    $('b-chart').classList.add('active');
+    $('b-chart').blur(); // Spasi tetap menjeda/menjalankan permainan, bukan menekan tombol ini
+    placeChart();
     renderCharts();
+    chart.lastRender = performance.now();
   }
   function closeChart() {
+    if (!chart.open) return;
     chart.open = false;
+    chart.hover = null;
     $('chart-overlay').hidden = true;
     $('ch-tip').hidden = true;
-    S.paused = chart.wasPaused;
+    $('b-chart').classList.remove('active');
+  }
+  /** Dipanggil tiap frame: gambar ulang grafik secara berkala selama terbuka. */
+  function tickChart(now) {
+    if (!chart.open || now - chart.lastRender < CHART_REFRESH * 1000) return;
+    chart.lastRender = now;
+    placeChart();
+    renderCharts();
   }
   $('b-chart').addEventListener('click', () => (chart.open ? closeChart() : openChart()));
   $('ch-close').addEventListener('click', closeChart);
-  // selama grafik terbuka, pintasan game (Spasi, 1–5, …) tidak berlaku; Esc menutup grafik
+  // pintasan permainan (Spasi, 1–5, …) tetap berlaku; Esc hanya menutup grafik
   window.addEventListener('keydown', (e) => {
-    if (!chart.open) return;
-    e.stopImmediatePropagation();
-    if (e.key === ' ' || e.key === 'Enter') e.preventDefault(); // jangan "menekan" tombol yang sedang fokus
-    if (e.key === 'Escape') closeChart();
-  }, true);
-  window.addEventListener('keyup', (e) => {
-    if (chart.open && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); e.stopImmediatePropagation(); }
+    if (chart.open && e.key === 'Escape') { e.stopImmediatePropagation(); closeChart(); }
   }, true);
   window.addEventListener('resize', () => { if (chart.open) renderCharts(); });
 
@@ -2016,6 +2028,7 @@
     }
     draw(now / 1000);
     updateHud();
+    tickChart(now);
     requestAnimationFrame(frame);
   }
 

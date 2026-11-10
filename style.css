@@ -342,9 +342,6 @@ button.small { padding: 6px 12px; font-size: 13px; }
 }
 .ch-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
 .ch-note { font-weight: 400; color: var(--text-secondary); font-size: 12.5px; }
-.ch-hero { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
-.ch-hero b { font-size: 32px; line-height: 1.1; }
-#ch-delta { color: var(--text-secondary); font-size: 13px; }
 .ch-plot { position: relative; height: 220px; }
 .ch-plot-tall { height: 320px; }
 .ch-plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
@@ -375,7 +372,6 @@ button.small { padding: 6px 12px; font-size: 13px; }
   .ch-head h2 { font-size: 17px; flex: 1; }
   #ch-sub { flex-basis: 100%; order: 3; font-size: 12px; }
   .ch-card { padding: 10px 10px 8px; }
-  .ch-hero b { font-size: 26px; }
   .ch-plot { height: 180px; }
   .ch-plot-tall { height: 260px; }
 }
