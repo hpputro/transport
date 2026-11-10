@@ -86,6 +86,21 @@ button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
   z-index: 3;
 }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* tombol V: sembunyikan panel bawah; saat tersembunyi berubah jadi tombol ^ di pojok kanan bawah */
+.collapse-btn {
+  position: absolute; top: 6px; right: 10px;
+  width: 34px; height: 30px; min-height: 0; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; color: var(--muted);
+}
+#hud-bottom > .row:first-of-type { padding-right: 40px; }
+#hud-bottom.collapsed { background: transparent; box-shadow: none; padding: 0; pointer-events: none; }
+#hud-bottom.collapsed > :not(.collapse-btn) { display: none !important; }
+#hud-bottom.collapsed .collapse-btn {
+  position: fixed; top: auto; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+  pointer-events: auto; color: var(--ink); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+#hud-bottom.collapsed .collapse-btn svg { transform: rotate(180deg); }
 #chips { display: flex; gap: 8px; margin-right: 6px; }
 .chip {
   position: relative;

@@ -797,6 +797,7 @@
   /** Tampilkan panel hasil di bawah layar (peta tetap terlihat dan bisa digeser/zoom). */
   function showResult({ title, kind, reason, stats, actions }) {
     S.building = false;
+    if (bottomPanel.collapsed) setBottomCollapsed(false); // panel hasil ada di panel bawah
     pruneStubLines();
     renderChips();
     $('toasts').innerHTML = '';
@@ -1249,12 +1250,29 @@
 
   function refreshUi() {
     pruneStubLines();
+    // panel bawah otomatis terbuka saat jalur dipilih/dibangun, supaya tombol-tombolnya bisa dipakai
+    if (bottomPanel.collapsed && (S.selected || S.building)) setBottomCollapsed(false);
     renderChips();
     updatePanel();
     updateHint();
     resize();
     cityPanel.last = 0; // perbarui panel samping segera
   }
+
+  // ---- panel bawah: bisa disembunyikan dengan tombol V ----
+  const bottomPanel = {
+    collapsed: (() => { try { return localStorage.getItem('lintasKota.bottomCollapsed') === '1'; } catch (e) { return false; } })(),
+  };
+  function setBottomCollapsed(collapsed) {
+    bottomPanel.collapsed = collapsed;
+    try { localStorage.setItem('lintasKota.bottomCollapsed', collapsed ? '1' : '0'); } catch (e) { /* abaikan */ }
+    $('hud-bottom').classList.toggle('collapsed', collapsed);
+    const label = collapsed ? 'Tampilkan panel bawah' : 'Sembunyikan panel bawah';
+    $('b-collapse').title = label;
+    $('b-collapse').setAttribute('aria-label', label);
+    resize();
+  }
+  $('b-collapse').addEventListener('click', () => setBottomCollapsed(!bottomPanel.collapsed));
 
   // ---- panel samping: daftar kota / daftar jalur ----
   const LEVEL_CODE = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // 0 = Kampung, I = Dusun … VIII = Kapital
@@ -1539,7 +1557,8 @@
     view.dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(window.innerWidth * view.dpr);
     canvas.height = Math.round(window.innerHeight * view.dpr);
-    const top = $('hud-top').offsetHeight, bottom = $('hud-bottom').offsetHeight;
+    // panel bawah yang disembunyikan tidak memakan ruang peta (hanya tombol ^ yang mengambang)
+    const top = $('hud-top').offsetHeight, bottom = bottomPanel.collapsed ? 0 : $('hud-bottom').offsetHeight;
     $('toasts').style.top = top + 10 + 'px'; // notifikasi tepat di bawah HUD atas
     // Kalau ukuran jendela sama dan hanya tinggi HUD yang berubah (mis. panel jalur muncul/hilang),
     // pertahankan skala & posisi peta di layar supaya kota tidak "melompat".
@@ -1817,6 +1836,7 @@
   renderTerrain();
   INDO.canvas = terrainCanvas;
   applyPanelUi();
+  $('hud-bottom').classList.toggle('collapsed', bottomPanel.collapsed);
   newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, 1);
   const reached = Math.min(LAST_MAP, loadNum('map'));
   if (reached > 1) {

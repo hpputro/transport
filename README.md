@@ -113,8 +113,11 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
 | Zoom | roda mouse, `+` / `-` | cubit |
 | Selesai membangun | klik area kosong, klik kanan, `Esc` | ketuk area kosong |
 | Jeda / kecepatan | `Spasi`; `1`–`5` | tombol ❚❚ dan 1–5 di kanan atas |
+| Sembunyikan / tampilkan panel bawah | tombol V (pojok kanan atas panel bawah) / ^ (pojok kanan bawah) | sama |
 
 Kecepatan 1–5 setara ¼×, ½×, 1×, 2×, 3× waktu normal. Permainan dimulai di kecepatan 3 (normal).
+
+Panel bawah yang disembunyikan memberi peta ruang lebih; panel itu terbuka lagi otomatis saat sebuah jalur dipilih atau dibangun, dan saat panel menang/kalah muncul. Pilihan terakhir diingat browser.
 
 ## Struktur
 
