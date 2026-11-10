@@ -154,12 +154,12 @@ button.small { padding: 6px 12px; font-size: 13px; }
 #cp-cities td:nth-child(1), #cp-cities td:nth-child(2) { color: var(--muted); width: 1%; }
 #cp-cities td:nth-child(2) { font-weight: 700; color: var(--ink); text-align: center; }
 #cp-cities td:nth-child(3) { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
-#cp-cities td:nth-child(4), #cp-cities td:nth-child(5),
-#cp-cities th:nth-child(4), #cp-cities th:nth-child(5) { text-align: right; }
+#cp-cities td:nth-child(n+4),
+#cp-cities th:nth-child(n+4) { text-align: right; }
 #cp-cities tbody tr { cursor: pointer; }
 #cp-cities tbody tr:hover { background: #eef3fb; }
-#cp-cities tr.warn td:nth-child(4) { color: #b77900; font-weight: 700; }
-#cp-cities tr.over td:nth-child(4) { color: var(--bad); font-weight: 700; }
+#cp-cities tr.warn td:nth-child(5) { color: #b77900; font-weight: 700; }
+#cp-cities tr.over td:nth-child(5) { color: var(--bad); font-weight: 700; }
 #cp-cities tr.over { background: #fdf0f0; }
 /* tabel jalur */
 #cp-lines td:nth-child(1) { color: var(--muted); width: 1%; }

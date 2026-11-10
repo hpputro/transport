@@ -1350,7 +1350,7 @@
 
   // Urutan tabel: klik judul kolom untuk mengurutkan, klik lagi untuk membalik arah.
   // dir: 1 = naik ▲ (kecil → besar, A → Z), -1 = turun ▼. "No" = urutan bawaan.
-  const SORT_FIRST_DIR = { default: -1, ratio: -1, level: -1, pop: -1, name: 1 };
+  const SORT_FIRST_DIR = { default: -1, wait: -1, ratio: -1, level: -1, pop: -1, name: 1 };
   const citySort = { key: 'default', dir: -1 };
   /** Urutan bawaan: tunggu/kapasitas, lalu level, lalu populasi (semua dari terbesar). */
   const defaultCmp = (a, b) => b.ratio - a.ratio || b.c.size - a.c.size || b.c.pop - a.c.pop;
@@ -1358,6 +1358,7 @@
   const SORT_CMP = {
     default: () => 0,
     ratio: (a, b) => a.ratio - b.ratio,
+    wait: (a, b) => a.c.wait.length - b.c.wait.length,
     level: (a, b) => a.c.size - b.c.size,
     pop: (a, b) => a.c.pop - b.c.pop,
     name: (a, b) => a.c.name.localeCompare(b.c.name, 'id'),
@@ -1421,7 +1422,7 @@
       body.innerHTML = '';
       for (let k = 0; k < rows.length; k++) {
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td></td><td></td><td></td><td></td><td></td>';
+        tr.innerHTML = '<td></td><td></td><td></td><td></td><td></td><td></td>';
         tr.addEventListener('click', () => focusCity(+tr.dataset.id));
         body.appendChild(tr);
       }
@@ -1430,13 +1431,17 @@
       const tr = body.children[k];
       tr.dataset.id = c.id;
       tr.className = fill > 1 ? 'over' : fill > 0.5 ? 'warn' : '';
-      tr.title = c.size === 0 ? `${c.name} · Kampung (belum terhubung)` : `${c.name} · ${SIZE_NAME[c.size]} · ${Math.round(fill * 100)}% kapasitas`;
+      tr.title = c.size === 0
+        ? `${c.name} · Kampung (belum terhubung) · ${c.wait.length} menunggu`
+        : `${c.name} · ${SIZE_NAME[c.size]} · ${c.wait.length}/${SIZE_CAP[c.size]} menunggu`;
       const cells = tr.children;
       cells[0].textContent = k + 1;
       cells[1].textContent = LEVEL_CODE[c.size];
       cells[2].textContent = c.name;
-      cells[3].textContent = `${c.wait.length}/${SIZE_CAP[c.size]}`;
-      cells[4].textContent = c.pop;
+      cells[3].textContent = c.wait.length;
+      // okupansi = menunggu ÷ kapasitas; Kampung (kapasitas 0) tidak punya persentase
+      cells[4].textContent = c.size === 0 ? '–' : `${Math.round((c.wait.length / SIZE_CAP[c.size]) * 100)}%`;
+      cells[5].textContent = c.pop;
     });
   }
 

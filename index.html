@@ -6,7 +6,7 @@
   <title>Lintas Kota</title>
   <meta name="description" content="Game strategi transportasi: hubungkan kota-kota di kepulauan dengan jalur kereta.">
   <!-- ?v=... = penanda versi supaya browser tidak memakai CSS/JS lama dari cache; ganti setiap kali file berubah -->
-  <link rel="stylesheet" href="style.css?v=47e243a">
+  <link rel="stylesheet" href="style.css?v=a5a31b6">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -70,11 +70,12 @@
     <table>
       <thead>
         <tr>
-          <th data-sort="default" title="Urutan bawaan: tunggu/kapasitas, lalu level, lalu populasi">No</th>
+          <th data-sort="default" title="Urutan bawaan: okupansi, lalu level, lalu populasi">No</th>
           <th data-sort="level" title="Level kota (0 = Kampung/belum terhubung, I = Dusun … VIII = Kapital)">Lv</th>
           <th data-sort="name" title="Nama kota">Kota</th>
-          <th data-sort="ratio" title="Penumpang menunggu / kapasitas">Tunggu/Kap</th>
-          <th data-sort="pop" title="Populasi kota">Pop.</th>
+          <th data-sort="wait" title="Jumlah penumpang menunggu">Menunggu</th>
+          <th data-sort="ratio" title="Penumpang menunggu ÷ kapasitas kota">Okupansi</th>
+          <th data-sort="pop" title="Populasi kota">Pop</th>
         </tr>
       </thead>
       <tbody id="cp-body"></tbody>
@@ -125,7 +126,7 @@
     </div>
   </div>
 
-  <script src="geo.js?v=47e243a"></script>
-  <script src="game.js?v=47e243a"></script>
+  <script src="geo.js?v=a5a31b6"></script>
+  <script src="game.js?v=a5a31b6"></script>
 </body>
 </html>
