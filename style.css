@@ -70,6 +70,9 @@ button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
 .stat .neg { color: var(--bad); }
 .bar { width: 120px; height: 9px; margin-top: 4px; border-radius: 5px; background: #e3e6ee; overflow: hidden; }
 #s-sat { height: 100%; width: 100%; background: var(--good); transition: width 0.25s, background 0.25s; }
+/* kepuasan mengisi sisa lebar HUD atas, sampai dekat tombol Kota */
+.stat.stat-sat { flex: 1 1 120px; min-width: 120px; }
+.stat.stat-sat .bar { width: 100%; }
 .speed { display: flex; gap: 4px; }
 .speed button { min-width: 38px; padding: 6px 8px; }
 
@@ -279,6 +282,7 @@ button.small { padding: 6px 12px; font-size: 13px; }
   .speed { margin-left: auto; }
   .stat > span:last-child { font-size: 14px; }
   .bar { width: 70px; }
+  .stat.stat-sat { flex-basis: 70px; min-width: 70px; }
   .speed button { min-width: 32px; padding: 5px 6px; }
   #hud-bottom { padding-left: 12px; padding-right: 12px; gap: 4px; }
   #city-panel { width: 92vw; max-width: 400px; }
