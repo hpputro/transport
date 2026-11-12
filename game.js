@@ -73,6 +73,11 @@
   const LEVEL_LIMIT = { 9: 3, 10: 1 };
   const levelFull = (lv) => LEVEL_LIMIT[lv] !== undefined && S.cities.filter((c) => c.size === lv).length >= LEVEL_LIMIT[lv];
   const NUMBER_FROM = 3;     // mulai Distrik, penumpang menunggu ditampilkan sebagai angka di dalam lingkaran
+  // Kota Festival: tiap hari kelipatan 10 (kalau populasi negara > 1000) satu kota terhubung dipilih acak
+  // secara bergiliran (setiap kota dapat giliran sekali sebelum ada yang festival lagi). Selama 3 hari,
+  // ukuran kota itu dalam bobot tujuan penumpang bertambah 10·log10(populasi kota) − 2 (minimal 0).
+  const FESTIVAL_EVERY = 10, FESTIVAL_DAYS = 3, FESTIVAL_MIN_POP = 1000;
+  const FESTIVAL_COLOR = '#e6007e';
   const SAME_LINE_BONUS = 2; // kota tujuan yang satu jalur dengan kota asal 2× lebih sering dipilih
 
   const canvas = document.getElementById('game');
@@ -426,6 +431,51 @@
     return ratio > 1 ? Math.min(DRAIN_MAX, DRAIN_BASE + DRAIN_PER_RATIO * (ratio - 1)) : 0;
   }
 
+  const isFestival = (c) => !!S.festival && S.festival.id === c.id;
+  const festivalBonus = (c) => Math.max(0, 10 * Math.log10(Math.max(1, c.pop)) - 2);
+
+  /** Dipanggil saat hari berganti: akhiri festival yang sudah 3 hari, mulai yang baru di hari kelipatan 10. */
+  function updateFestival() {
+    if (S.festival && S.day >= S.festival.until) {
+      toast(`Festival di ${S.cities[S.festival.id].name} selesai`, 'fest', 4000);
+      S.festival = null;
+    }
+    if (S.festival || S.day % FESTIVAL_EVERY !== 0 || S.population <= FESTIVAL_MIN_POP) { renderFestival(); return; }
+    // bergiliran: pilih acak di antara kota terhubung yang belum dapat giliran; kalau semua sudah, mulai putaran baru
+    let pool = S.cities.filter((c) => c.size >= 1 && !S.festivalDone.includes(c.id));
+    if (!pool.length) {
+      // putaran baru; kota yang terakhir festival tidak langsung terpilih lagi (kecuali hanya dia yang terhubung)
+      const last = S.festivalDone[S.festivalDone.length - 1];
+      S.festivalDone = [];
+      pool = S.cities.filter((c) => c.size >= 1);
+      if (pool.length > 1) pool = pool.filter((c) => c.id !== last);
+    }
+    if (!pool.length) { renderFestival(); return; }
+    const c = pool[Math.floor(S.rng() * pool.length)];
+    S.festivalDone.push(c.id);
+    S.festival = { id: c.id, from: S.day, until: S.day + FESTIVAL_DAYS };
+    toast(`🎉 Festival di ${c.name}! Hari ${S.day}–${S.day + FESTIVAL_DAYS - 1}: lebih banyak orang ingin berkunjung`, 'fest', 6000);
+    renderFestival();
+  }
+
+  /**
+   * Lencana di pojok kiri bawah peta selama festival berlangsung (klik = geser peta ke kota itu).
+   * Dipanggil tiap frame lewat updateHud, jadi DOM hanya diubah kalau isinya berubah.
+   */
+  function renderFestival() {
+    const b = $('fest-badge');
+    const on = !!S.festival && S.started && !$('hud-bottom').hidden;
+    if (b.hidden !== !on) b.hidden = !on;
+    if (!on) return;
+    const c = S.cities[S.festival.id];
+    const bottom = $('hud-bottom').offsetHeight + 10 + 'px'; // di atas panel bawah (tingginya berubah saat disembunyikan)
+    if (b.style.bottom !== bottom) b.style.bottom = bottom;
+    const text = `🎉 Festival ${c.name} · sampai hari ${S.festival.until - 1}`;
+    if (b.textContent !== text) b.textContent = text;
+    const title = `Ukuran ${c.name} sebagai tujuan penumpang +${festivalBonus(c).toFixed(1)} (10·log populasi − 2). Klik untuk menuju kota.`;
+    if (b.title !== title) b.title = title;
+  }
+
   function spawnPassenger(city) {
     const others = S.cities.filter((c) => c !== city);
     if (!others.length) return;
@@ -433,10 +483,11 @@
     // kota yang berada dalam satu jalur dengan kota asal (bisa dicapai tanpa pindah jalur)
     const sameLine = new Set();
     for (const L of S.lines) if (L.stations.includes(city.id)) for (const id of L.stations) sameLine.add(id);
-    // bobot tujuan = ukuran kota × faktor kepadatan × bonus satu jalur ÷ (1 + jarak/500)
+    // bobot tujuan = (ukuran kota + bonus festival) × faktor kepadatan × bonus satu jalur ÷ (1 + jarak/500)
     const w = others.map((c) => {
       const bonus = sameLine.has(c.id) ? SAME_LINE_BONUS : 1;
-      const v = (Math.max(1, c.size) * crowdFactor(c) * bonus) / (1 + dist(c, city) / 500);
+      const size = Math.max(1, c.size) + (isFestival(c) ? festivalBonus(c) : 0); // festival menambah ukuran kota
+      const v = (size * crowdFactor(c) * bonus) / (1 + dist(c, city) / 500);
       tot += v;
       return v;
     });
@@ -761,6 +812,8 @@
       won: false, winChoice: false, relaxed: false,
       selected: null, building: false, buildEnd: 'tail', unlocked: 2, // jalur yang bisa dipakai (diperbarui di update)
       particles: [],
+      festival: null,    // { id, from, until }: kota festival, berlangsung dari hari `from` sampai sebelum hari `until`
+      festivalDone: [],  // kota yang sudah mendapat giliran festival pada putaran ini
     };
     // kota peta ini yang belum muncul (Peta Bebas: hanya namanya, posisinya diacak saat muncul)
     S.history = []; // populasi negara & kota per hari (untuk grafik)
@@ -775,6 +828,7 @@
     const startCount = free ? 3 : Math.min(3, S.remaining.filter((d) => d.region === GEO.LEVEL_REGIONS[level - 1]).length);
     for (let i = 0; i < startCount; i++) spawnCity();
     recordHistory();
+    renderFestival();
     renderChips();
     updatePanel();
     updateHint();
@@ -786,6 +840,7 @@
     if (day > S.day) {
       S.day = day;
       recordHistory(); // titik data harian untuk grafik pertumbuhan populasi
+      updateFestival();
       const cost = upkeepCost();
       S.money -= cost.total;
       toast(cost.total ? `Hari ${day} · perawatan -$${cost.total} (kereta $${cost.trains} + jalur $${cost.lines})` : `Hari ${day}`);
@@ -1196,7 +1251,7 @@
   $('b-next').addEventListener('click', () => { if (S.won && S.level < LAST_MAP) startMap(S.level + 1); });
 
   // ================= UI DOM =================
-  function toast(msg, kind) {
+  function toast(msg, kind, ms = 2400) {
     const box = $('toasts');
     box.style.top = $('hud-top').offsetHeight + 10 + 'px'; // tepat di bawah HUD atas (tingginya bisa berubah di HP)
     if (box.lastChild && box.lastChild.textContent === msg && box.lastChild.style.opacity !== '0') return;
@@ -1204,9 +1259,10 @@
     el.className = 'toast' + (kind ? ' ' + kind : '');
     el.textContent = msg;
     box.appendChild(el);
-    while (box.children.length > 3) box.firstChild.remove();
-    setTimeout(() => { el.style.opacity = '0'; }, 2400);
-    setTimeout(() => el.remove(), 2900);
+    // maksimal 3 toast; notifikasi festival tidak ikut tergeser oleh toast biasa
+    while (box.children.length > 3) ([...box.children].find((t) => !t.classList.contains('fest')) || box.firstChild).remove();
+    setTimeout(() => { el.style.opacity = '0'; }, ms);
+    setTimeout(() => el.remove(), ms + 500);
   }
 
   function renderChips() {
@@ -1516,6 +1572,7 @@
   }
   $('b-chart').addEventListener('click', () => (chart.open ? closeChart() : openChart()));
   $('ch-close').addEventListener('click', closeChart);
+  $('fest-badge').addEventListener('click', () => { if (S.festival) focusCity(S.festival.id); });
   // pintasan permainan (Spasi, 1–5, …) tetap berlaku; Esc hanya menutup grafik
   window.addEventListener('keydown', (e) => {
     if (chart.open && e.key === 'Escape') { e.stopImmediatePropagation(); closeChart(); }
@@ -1708,7 +1765,7 @@
       const cells = tr.children;
       cells[0].textContent = k + 1;
       cells[1].textContent = LEVEL_CODE[c.size];
-      cells[2].textContent = c.name;
+      cells[2].textContent = (isFestival(c) ? '🎉 ' : '') + c.name;
       // jalur yang melewati kota: bulatan berwarna jalur (digambar ulang hanya kalau berubah)
       const ls = linesAt(c);
       const key = ls.map((L) => L.id).join(',');
@@ -1742,6 +1799,7 @@
 
   let lastHud = '';
   function updateHud() {
+    renderFestival();
     if (cityPanel.open && performance.now() - cityPanel.last > 400) {
       cityPanel.last = performance.now();
       if (cityPanel.mode === 'lines') renderLinePanel(); else renderCityPanel();
@@ -1799,7 +1857,8 @@
       (top ? `\n${top}` : '') +
       (noRoute ? `\nBelum ada rute: ${noRoute}` : '') +
       (appeal < 1 ? `\nTerlalu padat: minat dikunjungi ${Math.round(appeal * 100)}%` : '') +
-      `\nJalur: ${lines || 'belum terhubung'}`;
+      `\nJalur: ${lines || 'belum terhubung'}` +
+      (isFestival(c) ? `\n🎉 Festival sampai hari ${S.festival.until - 1}: ukuran +${festivalBonus(c).toFixed(1)}` : '');
     tip.hidden = false;
     const tx = Math.min(mouse.cx + 14, window.innerWidth - tip.offsetWidth - 8);
     const ty = Math.min(mouse.cy + 14, window.innerHeight - tip.offsetHeight - 8);
@@ -1999,6 +2058,15 @@
       ctx.arc(X, Y, r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, fill));
       ctx.stroke();
     }
+    // beacon Kota Festival: dua cincin magenta yang terus melebar & memudar
+    if (isFestival(c)) {
+      for (let k = 0; k < 2; k++) {
+        const ph = (now / 1.6 + k / 2) % 1;
+        ctx.strokeStyle = `rgba(230,0,126,${0.85 * (1 - ph)})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(X, Y, r + 6 + ph * 34, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
     // stasiun
     const L = S.selected;
     const onSel = L && L.stations.includes(c.id);
@@ -2126,5 +2194,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit, DAY_LEN };
 })();
