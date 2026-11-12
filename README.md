@@ -86,7 +86,7 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   | I | Dusun | 8 | langsung, begitu kota tersambung jalur |
   | II | Desa | 14 | total 40 kunjungan |
   | III | Distrik | 25 | 110 kunjungan |
-  | IV | Kota Kecil | 43 | 235 kunjungan |
+  | IV | Kota Praja | 43 | 235 kunjungan |
   | V | Kotamadya | 75 | 450 kunjungan |
   | VI | Kota Besar | 131 | 825 kunjungan |
   | VII | Metropolitan | 230 | 1.480 kunjungan |

@@ -6,7 +6,7 @@
   <title>Lintas Kota</title>
   <meta name="description" content="Game strategi transportasi: hubungkan kota-kota di kepulauan dengan jalur kereta.">
   <!-- ?v=... = penanda versi supaya browser tidak memakai CSS/JS lama dari cache; ganti setiap kali file berubah -->
-  <link rel="stylesheet" href="style.css?v=2d098fb">
+  <link rel="stylesheet" href="style.css?v=7f8ba00">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -47,8 +47,8 @@
         <button id="b-extend">Perpanjang</button>
         <button id="b-train">+ Kereta</button>
         <button id="b-cap">+ Gerbong</button>
-        <button id="b-trim-head">Putus</button>
-        <button id="b-trim-tail">Putus</button>
+        <button id="b-trim-head" class="danger">Putus</button>
+        <button id="b-trim-tail" class="danger">Putus</button>
         <button id="b-del" class="danger">Hapus jalur</button>
       </div>
     </div>
@@ -105,7 +105,7 @@
     </table>
     </div>
     <p class="cp-note" id="cp-note-lines" hidden>Okupansi = penumpang di dalam semua kereta jalur itu dibanding total kapasitasnya, saat ini. Klik judul kolom untuk mengurutkan; klik baris untuk memilih jalur.</p>
-    <p class="cp-note" id="cp-note-cities">Level: 0 Kampung (belum terhubung) · I Dusun · II Desa · III Distrik · IV Kota Kecil · V Kotamadya · VI Kota Besar · VII Metropolitan · VIII Megapolitan · IX Kota Global (maks 3) · X Kapital (maks 1). Klik baris untuk menuju kota.</p>
+    <p class="cp-note" id="cp-note-cities">Level: 0 Kampung (belum terhubung) · I Dusun · II Desa · III Distrik · IV Kota Praja · V Kotamadya · VI Kota Besar · VII Metropolitan · VIII Megapolitan · IX Kota Global (maks 3) · X Kapital (maks 1). Klik baris untuk menuju kota.</p>
   </aside>
 
   <!-- grafik pertumbuhan populasi (menutupi peta, di bawah HUD atas; diperbarui live selama permainan berjalan) -->
@@ -150,7 +150,7 @@
     </div>
   </div>
 
-  <script src="geo.js?v=2d098fb"></script>
-  <script src="game.js?v=2d098fb"></script>
+  <script src="geo.js?v=7f8ba00"></script>
+  <script src="game.js?v=7f8ba00"></script>
 </body>
 </html>

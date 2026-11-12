@@ -62,7 +62,7 @@
   // Level kota 0..10. Level 0 (Kampung) = belum terhubung jalur, kapasitas 0: penumpang pertama saja sudah membuatnya penuh.
   // Begitu tersambung, kota langsung menjadi Dusun (1); setelah itu kapasitas naik 1,75× tiap level (dibulatkan).
   // Hanya ukuran lingkaran yang membedakan level di peta.
-  const SIZE_NAME = ['Kampung', 'Dusun', 'Desa', 'Distrik', 'Kota Kecil', 'Kotamadya', 'Kota Besar', 'Metropolitan', 'Megapolitan', 'Kota Global', 'Kapital'];
+  const SIZE_NAME = ['Kampung', 'Dusun', 'Desa', 'Distrik', 'Kota Praja', 'Kotamadya', 'Kota Besar', 'Metropolitan', 'Megapolitan', 'Kota Global', 'Kapital'];
   const SIZE_CAP = [0, 8, 14, 25, 43, 75, 131, 230, 402, 704, 1231];
   const SIZE_R = [8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
   const MAX_LEVEL = SIZE_NAME.length - 1;
