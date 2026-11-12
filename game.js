@@ -75,7 +75,7 @@
   const NUMBER_FROM = 3;     // mulai Distrik, penumpang menunggu ditampilkan sebagai angka di dalam lingkaran
   // Kota Festival: tiap hari kelipatan 10 (kalau populasi negara > 1000) satu kota terhubung dipilih acak
   // secara bergiliran (setiap kota dapat giliran sekali sebelum ada yang festival lagi). Selama 3 hari,
-  // ukuran kota itu dalam bobot tujuan penumpang bertambah 10·log10(populasi kota) − 2 (minimal 0).
+  // bonus jalur kota itu dalam bobot tujuan penumpang bertambah log10(populasi negara).
   const FESTIVAL_EVERY = 10, FESTIVAL_DAYS = 3, FESTIVAL_MIN_POP = 1000;
   const FESTIVAL_COLOR = '#e6007e';
   const SAME_LINE_BONUS = 2; // kota tujuan yang satu jalur dengan kota asal 2× lebih sering dipilih
@@ -432,7 +432,7 @@
   }
 
   const isFestival = (c) => !!S.festival && S.festival.id === c.id;
-  const festivalBonus = (c) => Math.max(0, 10 * Math.log10(Math.max(1, c.pop)) - 2);
+  const festivalBonus = () => Math.log10(Math.max(1, S.population)); // ditambahkan ke bonus jalur
 
   /** Dipanggil saat hari berganti: akhiri festival yang sudah 3 hari, mulai yang baru di hari kelipatan 10. */
   function updateFestival() {
@@ -472,7 +472,7 @@
     if (b.style.bottom !== bottom) b.style.bottom = bottom;
     const text = `🎉 Festival ${c.name} · sampai hari ${S.festival.until - 1}`;
     if (b.textContent !== text) b.textContent = text;
-    const title = `Ukuran ${c.name} sebagai tujuan penumpang +${festivalBonus(c).toFixed(1)} (10·log populasi − 2). Klik untuk menuju kota.`;
+    const title = `Bonus jalur ${c.name} sebagai tujuan penumpang +${festivalBonus().toFixed(2)} (log populasi negara). Klik untuk menuju kota.`;
     if (b.title !== title) b.title = title;
   }
 
@@ -483,10 +483,11 @@
     // kota yang berada dalam satu jalur dengan kota asal (bisa dicapai tanpa pindah jalur)
     const sameLine = new Set();
     for (const L of S.lines) if (L.stations.includes(city.id)) for (const id of L.stations) sameLine.add(id);
-    // bobot tujuan = (ukuran kota + bonus festival) × faktor kepadatan × bonus satu jalur ÷ (1 + jarak/500)
+    // bobot tujuan = ukuran kota × faktor kepadatan × (bonus satu jalur + bonus festival) ÷ (1 + jarak/500)
     const w = others.map((c) => {
-      const bonus = sameLine.has(c.id) ? SAME_LINE_BONUS : 1;
-      const size = Math.max(1, c.size) + (isFestival(c) ? festivalBonus(c) : 0); // festival menambah ukuran kota
+      // festival menambah bonus jalur sebesar log10(populasi negara)
+      const bonus = (sameLine.has(c.id) ? SAME_LINE_BONUS : 1) + (isFestival(c) ? festivalBonus() : 0);
+      const size = Math.max(1, c.size);
       const v = (size * crowdFactor(c) * bonus) / (1 + dist(c, city) / 500);
       tot += v;
       return v;
@@ -1858,7 +1859,7 @@
       (noRoute ? `\nBelum ada rute: ${noRoute}` : '') +
       (appeal < 1 ? `\nTerlalu padat: minat dikunjungi ${Math.round(appeal * 100)}%` : '') +
       `\nJalur: ${lines || 'belum terhubung'}` +
-      (isFestival(c) ? `\n🎉 Festival sampai hari ${S.festival.until - 1}: ukuran +${festivalBonus(c).toFixed(1)}` : '');
+      (isFestival(c) ? `\n🎉 Festival sampai hari ${S.festival.until - 1}: bonus jalur +${festivalBonus().toFixed(2)}` : '');
     tip.hidden = false;
     const tx = Math.min(mouse.cx + 14, window.innerWidth - tip.offsetWidth - 8);
     const ty = Math.min(mouse.cy + 14, window.innerHeight - tip.offsetHeight - 8);
