@@ -642,17 +642,35 @@
    */
   function dropExtraTrains(L) {
     let n = 0, refund = 0;
-    while (L.trains.length > maxTrains(L)) {
-      const tr = L.trains.pop();
-      S.trains = S.trains.filter((t) => t !== tr);
-      S.cities[L.stations[clamp(tr.i, 0, L.stations.length - 1)]].wait.push(...tr.pax);
-      const paid = trainPrice(L); // harga saat kereta ini dibeli (jumlah kereta sebelumnya = sekarang)
-      L.spent = Math.max(0, (L.spent || 0) - paid);
-      refund += Math.round(paid * 0.5);
-      n++;
-    }
-    S.money += refund;
+    while (L.trains.length > maxTrains(L)) { refund += removeTrain(L); n++; }
     return { n, refund };
+  }
+
+  /** Harga kereta yang terakhir dibeli di jalur ini (dasar uang kembali saat kereta dibongkar). */
+  const lastTrainPrice = (L) => Math.round(TRAIN_COST * PRICE_GROWTH ** Math.max(0, L.trains.length - 1));
+
+  /** Stasiun terdekat dari posisi kereta saat ini (stasiun asal, atau stasiun tujuan kalau sudah lewat separuh ruas). */
+  function nearestStation(tr) {
+    const st = tr.line.stations, i = clamp(tr.i, 0, st.length - 1), j = tr.i + tr.dir;
+    if (tr.state === 'dwell' || j < 0 || j >= st.length) return st[i];
+    const len = dist(S.cities[st[i]], S.cities[st[j]]) || 1;
+    return tr.prog > len / 2 ? st[j] : st[i];
+  }
+
+  /**
+   * Bongkar kereta yang terakhir dibeli: penumpangnya turun di stasiun terdekat dan menunggu kereta lain,
+   * uang kembali 50% dari harga kereta itu. Mengembalikan jumlah uang yang kembali.
+   */
+  function removeTrain(L) {
+    if (!L.trains.length) return 0;
+    const paid = lastTrainPrice(L);
+    const tr = L.trains.pop();
+    S.trains = S.trains.filter((t) => t !== tr);
+    S.cities[nearestStation(tr)].wait.push(...tr.pax);
+    L.spent = Math.max(0, (L.spent || 0) - paid);
+    const refund = Math.round(paid * 0.5);
+    S.money += refund;
+    return refund;
   }
 
   function deleteLine(L) {
@@ -1200,6 +1218,14 @@
 
   $('b-extend').addEventListener('click', () => { if (S.selected) { S.building = true; S.buildEnd = 'tail'; refreshUi(); } });
   $('b-train').addEventListener('click', () => { if (S.selected) { addTrain(S.selected); refreshUi(); } });
+  $('b-untrain').addEventListener('click', () => {
+    const L = S.selected;
+    if (!L || !L.trains.length) return;
+    const n = L.trains[L.trains.length - 1].pax.length;
+    const refund = removeTrain(L);
+    toast(`1 kereta jalur ${L.name} dibongkar, kembali $${refund}` + (n ? ` · ${n} penumpang turun di stasiun terdekat` : ''));
+    refreshUi();
+  });
   $('b-cap').addEventListener('click', () => { if (S.selected) { upgradeCap(S.selected); refreshUi(); } });
   $('b-trim-head').addEventListener('click', () => { if (S.selected) { trimLine(S.selected, true); refreshUi(); } });
   $('b-trim-tail').addEventListener('click', () => { if (S.selected) { trimLine(S.selected, false); refreshUi(); } });
@@ -1298,6 +1324,11 @@
     const tp = trainPrice(L), cp = capPrice(L);
     $('b-train').textContent = L.trains.length >= maxT ? 'Kereta maks' : `+ Kereta ($${tp})`;
     $('b-train').disabled = L.trains.length >= maxT || S.money < tp;
+    $('b-untrain').textContent = L.trains.length ? `− Kereta (+$${Math.round(lastTrainPrice(L) * 0.5)})` : '− Kereta';
+    $('b-untrain').disabled = !L.trains.length;
+    $('b-untrain').title = L.trains.length
+      ? 'Bongkar kereta yang terakhir dibeli: penumpangnya turun di stasiun terdekat, uang kembali 50% dari harganya'
+      : 'Jalur ini belum punya kereta';
     $('b-cap').textContent = L.car >= MAX_CAR ? 'Gerbong maks' : `+ Gerbong ($${cp})`;
     $('b-cap').disabled = L.car >= MAX_CAR || S.money < cp;
     $('b-cap').title = L.car >= MAX_CAR ? `Gerbong level ${MAX_CAR}: muat ${L.cap}` : `Gerbong level ${L.car + 1}: muat ${L.cap} → ${CAR_CAP[L.car + 1]} per kereta`;
