@@ -440,7 +440,7 @@
       toast(`Festival di ${S.cities[S.festival.id].name} selesai`, 'fest', 4000);
       S.festival = null;
     }
-    if (S.festival || S.day % FESTIVAL_EVERY !== 0 || S.population <= FESTIVAL_MIN_POP) { renderFestival(); return; }
+    if (S.festival || S.day % FESTIVAL_EVERY !== 0 || S.population <= FESTIVAL_MIN_POP) return;
     // bergiliran: pilih acak di antara kota terhubung yang belum dapat giliran; kalau semua sudah, mulai putaran baru
     let pool = S.cities.filter((c) => c.size >= 1 && !S.festivalDone.includes(c.id));
     if (!pool.length) {
@@ -450,30 +450,11 @@
       pool = S.cities.filter((c) => c.size >= 1);
       if (pool.length > 1) pool = pool.filter((c) => c.id !== last);
     }
-    if (!pool.length) { renderFestival(); return; }
+    if (!pool.length) return;
     const c = pool[Math.floor(S.rng() * pool.length)];
     S.festivalDone.push(c.id);
     S.festival = { id: c.id, from: S.day, until: S.day + FESTIVAL_DAYS };
     toast(`🎉 Festival di ${c.name}! Hari ${S.day}–${S.day + FESTIVAL_DAYS - 1}: lebih banyak orang ingin berkunjung`, 'fest', 6000);
-    renderFestival();
-  }
-
-  /**
-   * Lencana di pojok kiri bawah peta selama festival berlangsung (klik = geser peta ke kota itu).
-   * Dipanggil tiap frame lewat updateHud, jadi DOM hanya diubah kalau isinya berubah.
-   */
-  function renderFestival() {
-    const b = $('fest-badge');
-    const on = !!S.festival && S.started && !$('hud-bottom').hidden;
-    if (b.hidden !== !on) b.hidden = !on;
-    if (!on) return;
-    const c = S.cities[S.festival.id];
-    const bottom = $('hud-bottom').offsetHeight + 10 + 'px'; // di atas panel bawah (tingginya berubah saat disembunyikan)
-    if (b.style.bottom !== bottom) b.style.bottom = bottom;
-    const text = `🎉 Festival ${c.name} · sampai hari ${S.festival.until - 1}`;
-    if (b.textContent !== text) b.textContent = text;
-    const title = `Bonus jalur ${c.name} sebagai tujuan penumpang +${festivalBonus().toFixed(2)} (log populasi negara). Klik untuk menuju kota.`;
-    if (b.title !== title) b.title = title;
   }
 
   function spawnPassenger(city) {
@@ -829,7 +810,6 @@
     const startCount = free ? 3 : Math.min(3, S.remaining.filter((d) => d.region === GEO.LEVEL_REGIONS[level - 1]).length);
     for (let i = 0; i < startCount; i++) spawnCity();
     recordHistory();
-    renderFestival();
     renderChips();
     updatePanel();
     updateHint();
@@ -1573,7 +1553,6 @@
   }
   $('b-chart').addEventListener('click', () => (chart.open ? closeChart() : openChart()));
   $('ch-close').addEventListener('click', closeChart);
-  $('fest-badge').addEventListener('click', () => { if (S.festival) focusCity(S.festival.id); });
   // pintasan permainan (Spasi, 1–5, …) tetap berlaku; Esc hanya menutup grafik
   window.addEventListener('keydown', (e) => {
     if (chart.open && e.key === 'Escape') { e.stopImmediatePropagation(); closeChart(); }
@@ -1800,7 +1779,6 @@
 
   let lastHud = '';
   function updateHud() {
-    renderFestival();
     if (cityPanel.open && performance.now() - cityPanel.last > 400) {
       cityPanel.last = performance.now();
       if (cityPanel.mode === 'lines') renderLinePanel(); else renderCityPanel();
