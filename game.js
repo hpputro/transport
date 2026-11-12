@@ -83,7 +83,7 @@
     ['🚉', 'Stasiun'], ['🏭', 'Perindustrian'], ['🏟️', 'Stadion'], ['🎓', 'Universitas'], ['⚓', 'Pelabuhan'],
     ['🏯', 'Kastil'], ['🏢', 'Perkantoran'], ['🗼', 'Menara'], ['🏕️', 'Perkemahan'], ['✈️', 'Bandara'],
   ];
-  const LANDMARK_COST = 1000, LANDMARK_GROWTH = 1.5, LANDMARK_PX = 34;
+  const LANDMARK_COST = 1000, LANDMARK_GROWTH = 1.5, LANDMARK_PX = 24; // ukuran ikon di peta (ikut zoom)
   const landmarkPrice = (i) => Math.round(LANDMARK_COST * LANDMARK_GROWTH ** i);
   const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   const FESTIVAL_EVERY = 10, FESTIVAL_DAYS = 3, FESTIVAL_MIN_POP = 1000;
