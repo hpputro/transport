@@ -76,6 +76,16 @@
   // Kota Festival: tiap hari kelipatan 10 (kalau populasi negara > 1000) satu kota terhubung dipilih acak
   // secara bergiliran (setiap kota dapat giliran sekali sebelum ada yang festival lagi). Selama 3 hari,
   // bonus jalur kota itu dalam bobot tujuan penumpang bertambah log10(populasi negara).
+  // Stiker landmark: hiasan peta, dipasang berurutan dari yang termurah. Harga landmark ke-n = $1.000 × 1,5^(n−1).
+  const LANDMARKS = [
+    ['🏠', 'Rumah'], ['🌳', 'Taman'], ['⛲', 'Air Mancur'], ['🏪', 'Pasar'], ['🏫', 'Sekolah'],
+    ['🚏', 'Halte'], ['🕌', 'Masjid'], ['🚓', 'Kantor Polisi'], ['🏥', 'Rumah Sakit'], ['🏛️', 'Istana'],
+    ['🚉', 'Stasiun Kereta'], ['🎡', 'Pasar Malam'], ['🏟️', 'Stadion'], ['🎓', 'Universitas'], ['⚓', 'Pelabuhan'],
+    ['🖼️', 'Museum'], ['🏬', 'Mall'], ['🗼', 'Menara'], ['🏕️', 'Wisata Kemah'], ['✈️', 'Bandara'],
+  ];
+  const LANDMARK_COST = 1000, LANDMARK_GROWTH = 1.5, LANDMARK_PX = 34;
+  const landmarkPrice = (i) => Math.round(LANDMARK_COST * LANDMARK_GROWTH ** i);
+  const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   const FESTIVAL_EVERY = 10, FESTIVAL_DAYS = 3, FESTIVAL_MIN_POP = 1000;
   const FESTIVAL_COLOR = '#e6007e';
   const SAME_LINE_BONUS = 2; // kota tujuan yang satu jalur dengan kota asal 2× lebih sering dipilih
@@ -814,6 +824,8 @@
       particles: [],
       festival: null,    // { id, from, until }: kota festival, berlangsung dari hari `from` sampai sebelum hari `until`
       festivalDone: [],  // kota yang sudah mendapat giliran festival pada putaran ini
+      landmarks: [],     // stiker landmark yang terpasang: { i (urutan di LANDMARKS), x, y }
+      placing: false,    // sedang memilih tempat untuk landmark berikutnya
     };
     // kota peta ini yang belum muncul (Peta Bebas: hanya namanya, posisinya diacak saat muncul)
     S.history = []; // populasi negara & kota per hari (untuk grafik)
@@ -1096,6 +1108,15 @@
     if (blocked()) return;
     const p = toWorld(e.clientX, e.clientY);
     mouse.x = p.x; mouse.y = p.y; mouse.cx = e.clientX; mouse.cy = e.clientY; mouse.inside = true;
+    if (S.placing) { placeLandmark(p); return; }
+    // landmark: klik/ketuk dua kali untuk menghapus (klik sekali tidak melakukan apa-apa)
+    const lm = !S.building && landmarkAt(p);
+    if (lm) {
+      const now = performance.now();
+      if (lmTap && lmTap.lm === lm && now - lmTap.t < 450) { lmTap = null; removeLandmark(lm); }
+      else lmTap = { lm, t: now };
+      return;
+    }
     const c = cityAt(p);
     if (S.building) {
       if (c) buildClick(c); else stopBuilding();
@@ -1145,7 +1166,7 @@
 
   canvas.addEventListener('pointerdown', (e) => {
     trackMouse(e);
-    if (e.button === 2) { if (!blocked()) stopBuilding(); return; }
+    if (e.button === 2) { if (!blocked()) { if (S.placing) cancelPlacing(); else stopBuilding(); } return; }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* abaikan */ }
     if (pointers.size === 1) {
@@ -1199,7 +1220,7 @@
     if (blocked()) return;
     if (e.code === 'Space') { e.preventDefault(); setSpeed(S.paused ? S.speed : 0); }
     else if (e.key >= '1' && e.key <= String(SPEEDS.length)) setSpeed(SPEEDS[+e.key - 1]);
-    else if (e.key === 'Escape') { if (S.building) stopBuilding(); else selectLine(null); }
+    else if (e.key === 'Escape') { if (S.placing) cancelPlacing(); else if (S.building) stopBuilding(); else selectLine(null); }
     else if (e.key === '+' || e.key === '=') zoomAt(view.area.x + view.area.w / 2, view.area.y + view.area.h / 2, view.zoom * 1.25);
     else if (e.key === '-') zoomAt(view.area.x + view.area.w / 2, view.area.y + view.area.h / 2, view.zoom / 1.25);
   });
@@ -1296,6 +1317,7 @@
       if (S.selected && S.selected.id === i) b.classList.add('sel');
       b.addEventListener('click', () => {
         if (blocked()) return;
+        S.placing = false;
         if (i >= S.unlocked) { toast(lockReason(i)); return; }
         const cur = S.lines.find((l) => l.id === i);
         if (cur) { selectLine(S.selected === cur && !S.building ? null : cur); return; }
@@ -1305,6 +1327,92 @@
       });
       box.appendChild(b);
     }
+    // chip stiker landmark: menampilkan landmark berikutnya (yang termurah yang belum terpasang)
+    const li = nextLandmark();
+    const s = document.createElement('button');
+    s.className = 'chip sticker';
+    if (li < 0) {
+      s.classList.add('locked');
+      s.textContent = '✓';
+      s.title = `Semua ${LANDMARKS.length} landmark sudah terpasang`;
+    } else {
+      const [icon, name] = LANDMARKS[li];
+      s.textContent = icon;
+      s.title = `${name} · $${landmarkPrice(li).toLocaleString('id-ID')} — klik, lalu klik di daratan untuk memasang. Klik dua kali landmark di peta untuk menghapusnya.`;
+      if (S.placing) s.classList.add('sel');
+    }
+    s.addEventListener('click', () => {
+      if (blocked()) return;
+      if (li < 0) { toast(`Semua ${LANDMARKS.length} landmark sudah terpasang`); return; }
+      if (S.placing) { cancelPlacing(); return; }
+      const price = landmarkPrice(li);
+      if (S.money < price) { toast(`Kas tidak cukup untuk ${LANDMARKS[li][1]} (butuh $${price.toLocaleString('id-ID')})`, 'bad'); return; }
+      selectLine(null); // berhenti membangun / lepas pilihan jalur
+      S.placing = true;
+      refreshUi();
+    });
+    box.appendChild(s);
+  }
+
+  // ---- stiker landmark ----
+  let lmTap = null; // ketukan pertama pada landmark (untuk mendeteksi klik dua kali)
+  /** Landmark termurah yang belum terpasang, atau -1 kalau semuanya sudah. */
+  function nextLandmark() {
+    for (let i = 0; i < LANDMARKS.length; i++) if (!S.landmarks.some((l) => l.i === i)) return i;
+    return -1;
+  }
+  /** Landmark terpasang di dekat titik p (radius mengikuti ukuran ikon, lebih lebar untuk jari). */
+  function landmarkAt(p) {
+    const r = Math.max(LANDMARK_PX * 0.6 * UI, screenPx(mouse.touch ? 26 : 14));
+    let best = null, bd = Infinity;
+    for (const l of S.landmarks) { const d = dist(l, p); if (d < r && d < bd) { best = l; bd = d; } }
+    return best;
+  }
+  /** Boleh dipasang di mana saja asal bukan air (laut/danau) dan tidak menimpa kota. */
+  const canPlaceAt = (p) => terrainAt(p.x, p.y) !== WATER && !cityAt(p);
+  function placeLandmark(p) {
+    const li = nextLandmark();
+    if (li < 0) { cancelPlacing(); return; }
+    const [icon, name] = LANDMARKS[li], price = landmarkPrice(li);
+    if (terrainAt(p.x, p.y) === WATER) { toast('Landmark tidak bisa dipasang di laut atau danau', 'bad'); return; }
+    if (cityAt(p)) { toast('Terlalu dekat dengan kota, pilih tempat lain', 'bad'); return; }
+    if (S.money < price) { toast(`Kas tidak cukup untuk ${name} (butuh $${price.toLocaleString('id-ID')})`, 'bad'); cancelPlacing(); return; }
+    S.money -= price;
+    S.landmarks.push({ i: li, x: p.x, y: p.y });
+    S.placing = false;
+    S.particles.push({ x: p.x, y: p.y - 22, text: `-$${price.toLocaleString('id-ID')}`, life: 1.2, color: '#b3261e' });
+    toast(`${icon} ${name} terpasang`, 'good');
+    refreshUi();
+  }
+  function cancelPlacing() { S.placing = false; refreshUi(); }
+  /** Hapus landmark (tanpa uang kembali); ikonnya kembali ke chip stiker. */
+  function removeLandmark(lm) {
+    S.landmarks = S.landmarks.filter((l) => l !== lm);
+    toast(`${LANDMARKS[lm.i][0]} ${LANDMARKS[lm.i][1]} dihapus, ikonnya kembali ke chip stiker`);
+    refreshUi();
+  }
+  function drawLandmarks() {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${LANDMARK_PX * UI}px ${EMOJI_FONT}`;
+    for (const l of S.landmarks) ctx.fillText(LANDMARKS[l.i][0], l.x, l.y);
+    // pratinjau di bawah kursor saat memilih tempat (mouse saja; di layar sentuh langsung ketuk)
+    if (S.placing && mouse.inside && !mouse.touch) {
+      const li = nextLandmark();
+      if (li >= 0) {
+        const ok = canPlaceAt(mouse);
+        ctx.globalAlpha = ok ? 0.7 : 0.35;
+        ctx.fillText(LANDMARKS[li][0], mouse.x, mouse.y);
+        ctx.globalAlpha = 1;
+        if (!ok) {
+          const r = LANDMARK_PX * 0.7 * UI;
+          ctx.strokeStyle = '#d64045'; ctx.lineWidth = 3 * UI;
+          ctx.beginPath(); ctx.arc(mouse.x, mouse.y, r, 0, Math.PI * 2);
+          ctx.moveTo(mouse.x - r * 0.7, mouse.y + r * 0.7); ctx.lineTo(mouse.x + r * 0.7, mouse.y - r * 0.7); ctx.stroke();
+        }
+      }
+    }
+    ctx.textBaseline = 'alphabetic';
   }
 
   function updatePanel() {
@@ -1347,13 +1455,17 @@
   function updateHint() {
     let h;
     const L = S.selected;
-    if (S.building && L) {
+    const li = S.placing ? nextLandmark() : -1;
+    if (li >= 0) {
+      h = `Pasang ${LANDMARKS[li][0]} ${LANDMARKS[li][1]} ($${landmarkPrice(li).toLocaleString('id-ID')}): klik di daratan (bukan laut/danau). Esc, klik kanan, atau klik chip stiker lagi untuk batal.`;
+    } else if (S.building && L) {
       if (!L.stations.length) h = `Jalur ${L.name}: klik kota pertama.`;
       else h = `Jalur ${L.name}: klik kota berikutnya untuk memasang rel dari ujung ${S.buildEnd === 'head' ? 'awal' : 'akhir'}. Klik ujung lain untuk pindah arah. Klik area kosong atau Esc untuk selesai.`;
     } else if (L) {
       h = 'Klik ujung jalur untuk memperpanjang, atau gunakan tombol di atas. Klik area kosong untuk batal memilih.';
     } else {
-      h = 'Klik kota untuk membuat jalur baru · klik jalur untuk memilihnya · seret untuk menggeser peta, gulir/cubit untuk zoom.';
+      h = 'Klik kota untuk membuat jalur baru · klik jalur untuk memilihnya · seret untuk menggeser peta, gulir/cubit untuk zoom.' +
+        (S.landmarks.length ? ' · klik dua kali landmark untuk menghapusnya' : '');
     }
     $('hint').textContent = h;
   }
@@ -1939,6 +2051,7 @@
     ctx.drawImage(terrainCanvas, 0, 0, W, H);
 
     drawLines();
+    drawLandmarks();
     drawPreview();
     for (const c of S.cities) drawCity(c, now);
     for (const tr of S.trains) drawTrain(tr);
@@ -2204,5 +2317,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit, DAY_LEN };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit, DAY_LEN, terrainAt };
 })();
