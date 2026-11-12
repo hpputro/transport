@@ -79,9 +79,9 @@
   // Stiker landmark: hiasan peta, dipasang berurutan dari yang termurah. Harga landmark ke-n = $1.000 × 1,5^(n−1).
   const LANDMARKS = [
     ['🏠', 'Rumah'], ['🌳', 'Taman'], ['⛲', 'Air Mancur'], ['🏪', 'Pasar'], ['🏫', 'Sekolah'],
-    ['🚏', 'Halte'], ['🕌', 'Masjid'], ['🚓', 'Kantor Polisi'], ['🏥', 'Rumah Sakit'], ['🏛️', 'Istana'],
-    ['🚉', 'Stasiun Kereta'], ['🎡', 'Pasar Malam'], ['🏟️', 'Stadion'], ['🎓', 'Universitas'], ['⚓', 'Pelabuhan'],
-    ['🖼️', 'Museum'], ['🏬', 'Mall'], ['🗼', 'Menara'], ['🏕️', 'Wisata Kemah'], ['✈️', 'Bandara'],
+    ['🚏', 'Halte'], ['🕌', 'Masjid'], ['🚨', 'Kantor Polisi'], ['🏥', 'Rumah Sakit'], ['🏛️', 'Istana Negara'],
+    ['🚉', 'Stasiun'], ['🏭', 'Perindustrian'], ['🏟️', 'Stadion'], ['🎓', 'Universitas'], ['⚓', 'Pelabuhan'],
+    ['🏯', 'Keraton'], ['🏢', 'Perkantoran'], ['🗼', 'Menara'], ['🏕️', 'Perkemahan'], ['✈️', 'Bandara'],
   ];
   const LANDMARK_COST = 1000, LANDMARK_GROWTH = 1.5, LANDMARK_PX = 34;
   const landmarkPrice = (i) => Math.round(LANDMARK_COST * LANDMARK_GROWTH ** i);
