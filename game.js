@@ -81,7 +81,7 @@
     ['🏠', 'Rumah'], ['🌳', 'Taman'], ['⛲', 'Air Mancur'], ['🏪', 'Pasar'], ['🏫', 'Sekolah'],
     ['🚏', 'Halte'], ['🕌', 'Masjid'], ['🚨', 'Kantor Polisi'], ['🏥', 'Rumah Sakit'], ['🏛️', 'Istana Negara'],
     ['🚉', 'Stasiun'], ['🏭', 'Perindustrian'], ['🏟️', 'Stadion'], ['🎓', 'Universitas'], ['⚓', 'Pelabuhan'],
-    ['🏯', 'Keraton'], ['🏢', 'Perkantoran'], ['🗼', 'Menara'], ['🏕️', 'Perkemahan'], ['✈️', 'Bandara'],
+    ['🏯', 'Kastil'], ['🏢', 'Perkantoran'], ['🗼', 'Menara'], ['🏕️', 'Perkemahan'], ['✈️', 'Bandara'],
   ];
   const LANDMARK_COST = 1000, LANDMARK_GROWTH = 1.5, LANDMARK_PX = 34;
   const landmarkPrice = (i) => Math.round(LANDMARK_COST * LANDMARK_GROWTH ** i);
