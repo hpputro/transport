@@ -311,7 +311,7 @@
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n;
       const ty = terrainAt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
-      c += (ty === WATER ? 4 : ty === MOUNT ? 2.5 : ty === FOREIGN ? 2 : 1) * (d / n);
+      c += (ty === WATER ? 4 : ty === MOUNT ? 3 : ty === FOREIGN ? 2 : 1) * (d / n);
     }
     return Math.round(c * 0.7 / 5) * 5;
   }

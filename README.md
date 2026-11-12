@@ -54,8 +54,8 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
 - **Bangun jalur**: klik sebuah kota, lalu klik kota-kota berikutnya. Setiap ruas rel ada biayanya, tergantung jarak dan medan:
   - darat ×1
   - melintasi negara tetangga ×2
-  - gunung ×2,5 (terowongan)
-  - laut ×4 (jembatan)
+  - gunung ×3 (terowongan)
+  - laut dan danau ×4 (jembatan)
 - **Perpanjang jalur**: pilih jalurnya, lalu klik salah satu ujungnya. Kamu bisa memperpanjang dari ujung awal maupun ujung akhir.
 - **Kereta**: jalur baru dibuat **tanpa kereta**; beli kereta lewat tombol "+ Kereta" dan gerbong lewat "+ Gerbong". Harga naik 1,5× setiap kali membeli, dihitung per jalur: kereta $400 → $600 → $900 → $1.350 → …, gerbong $250 → $375 → $563 → $844. Kalau jalur dihapus, kembali 50% dari biaya rel ditambah 50% dari yang dibayar untuk kereta & gerbong jalur itu.
   - **Jumlah kereta maksimal** = panjang jalur (km) ÷ 500, dibulatkan ke atas (minimal 1). Contoh: 450 km → 1 kereta, 501 km → 2 kereta, 1.200 km → 3 kereta, 3.177 km → 7 kereta. Panel bawah menampilkannya sebagai "2/3 kereta".
