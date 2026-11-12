@@ -15,7 +15,7 @@
   // 15 jalur: Maroon, Red, Pink, Ochre, Orange, Lemon, Lime, Green, DarkGreen, SkyBlue, Blue, Navy, Lilac, Violet, Plum
   const LINE_COLORS = ['#8b1e3f', '#e63946', '#ec5fa8', '#c98a14', '#f37021', '#f0d000', '#9acd1c', '#2eaa4a', '#1e6b34',
     '#3aa6e0', '#2563eb', '#1a2d6b', '#b48ad8', '#7b3fb5', '#8e4585'];
-  const LINE_NAMES = ['Marun', 'Merah', 'Merah Muda', 'Oker', 'Oranye', 'Lemon', 'Hijau Muda', 'Hijau', 'Hijau Tua',
+  const LINE_NAMES = ['Marun', 'Merah', 'Pink', 'Oker', 'Jingga', 'Kuning', 'Hijau Muda', 'Hijau', 'Hijau Tua',
     'Biru Langit', 'Biru', 'Biru Dongker', 'Lila', 'Ungu', 'Plum'];
   // Sebuah jalur bisa dipakai kalau DUA syarat terpenuhi:
   //  1. peta: Peta 1 = maks. 4 jalur, tiap peta +2, Peta 7 = semua (15)
@@ -1272,8 +1272,8 @@
       b.title = canTrim ? `Lepas stasiun ${S.cities[city].name} dan bongkar relnya (uang kembali 50%)`
         : 'Jalur minimal 2 stasiun. Gunakan "Hapus jalur" untuk menghapusnya.';
     };
-    trimBtn('b-trim-head', 'Potong', st[0], L.segCosts[0]);
-    trimBtn('b-trim-tail', 'Potong', st[n - 1], L.segCosts[n - 2]);
+    trimBtn('b-trim-head', 'Putus', st[0], L.segCosts[0]);
+    trimBtn('b-trim-tail', 'Putus', st[n - 1], L.segCosts[n - 2]);
   }
 
   function updateHint() {
