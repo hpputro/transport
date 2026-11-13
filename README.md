@@ -79,8 +79,9 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   - Kereta berhenti 0,5 detik di setiap stasiun, berapa pun jumlah penumpang yang naik atau turun.
   - Supaya kereta tidak berkumpul: kalau jarak ke kereta di depannya kurang dari 90% jarak ideal (satu putaran pulang-pergi ÷ jumlah kereta), kereta menunggu di stasiun maksimal 2 detik. Penumpang yang datang selama menunggu ikut naik saat kereta berangkat.
 - **Penumpang** muncul di tiap kota dengan tujuan kota lain. Mereka otomatis mencari rute terpendek, termasuk transit antar-jalur.
-  - Laju per kota: `(0,06 + 0,045 × level) × pengali hari` penumpang/detik, hanya 60% kalau kota belum punya jalur.
-  - Pengali hari: `1 + 3% × (hari − 1)`, paling tinggi ×2 (tercapai di hari ke-34).
+  - Laju per kota: `(0,05 + 0,04 × level) × pengali hari` penumpang/detik (detik permainan, kecepatan normal), hanya 60% kalau kota belum punya jalur. Kota baru menunggu 6 detik sebelum penumpang pertamanya.
+  - Pengali hari: `1 + 2,5% × (hari − 1)`, paling tinggi ×2 (tercapai di hari ke-41).
+  - Selang antar-penumpang di hari 1: Kampung 33 detik · Dusun 11,1 · Desa 7,7 · Distrik 5,9 · Kota Praja 4,8 · Kotamadya 4,0 · Kota Besar 3,4 · Metropolitan 3,0 · Megapolitan 2,7 · Kota Global 2,4 · Kapital 2,2 detik (setengahnya setelah hari ke-41).
   - Tujuan dipilih acak berbobot: `level kota tujuan × faktor kepadatan × (bonus satu jalur + bonus festival) ÷ (1 + jarak/500)`. Kota besar dan dekat lebih sering dituju.
   - **Kota Festival** 🎉: setiap awal hari kelipatan 10 (hari 10, 20, 30, …), kalau populasi negara sudah lebih dari 1.000, satu kota yang sudah terhubung dipilih acak secara bergiliran. Setiap kota terhubung mendapat giliran sekali sebelum ada yang festival lagi, dan kota terakhir tidak langsung terpilih lagi di awal putaran baru.
     - Festival berlangsung 3 hari (mis. hari 20–22). Selama itu bonus jalur kota tersebut sebagai tujuan bertambah `log₁₀(populasi negara)`. Contoh: populasi negara 1.500 → +3,18, jadi bonus jalurnya 1 + 3,18 = 4,18 (dari kota di jalur lain) atau 2 + 3,18 = 5,18 (dari kota di jalur yang sama). Dengan kata lain kota festival ±4× lebih diminati dari kota di jalur lain, dan ±2,6× dari kota di jalur yang sama. Populasi negara 10.000 → +4.

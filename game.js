@@ -41,7 +41,10 @@
   const TRAIN_SPEED = 110;   // px per detik (±1,2° per detik)
   const DWELL = 0.5;         // lama berhenti di stasiun (tetap, tidak tergantung jumlah penumpang)
   const HOLD_RATIO = 0.9;    // kereta menahan diri kalau jarak ke kereta depan < 90% jarak ideal
-  const DAY_GROWTH = 0.03;   // laju penumpang naik 3% (dari laju dasar) per hari
+  // laju penumpang per kota (penumpang/detik) = SPAWN_BASE + SPAWN_PER_LEVEL × level
+  const SPAWN_BASE = 0.05;      // laju dasar: 1 penumpang tiap 20 detik
+  const SPAWN_PER_LEVEL = 0.04; // tambahan per level kota
+  const DAY_GROWTH = 0.025;  // laju penumpang naik 2,5% (dari laju dasar) per hari
   const DAY_MULT_MAX = 2;    // ...tapi paling tinggi 2× laju dasar
   const DRAIN_BASE = 0.7;      // kepuasan turun minimal 0,7/detik begitu kota melebihi kapasitas
   const DRAIN_PER_RATIO = 2;   // ...ditambah 2/detik untuk setiap kelipatan kapasitas yang terlampaui
@@ -938,11 +941,11 @@
         else S.target = S.cities.length; // peta sudah terlalu padat; target disesuaikan
       }
     }
-    // laju penumpang naik 3% per hari, maksimal ×2 (tercapai di hari ke-34)
+    // laju penumpang naik 2,5% per hari, maksimal ×2 (tercapai di hari ke-41)
     const mult = Math.min(DAY_MULT_MAX, 1 + DAY_GROWTH * (S.day - 1));
     for (const c of S.cities) {
       if (S.t - c.born > 6) {
-        const rate = (0.06 + 0.045 * c.size) * mult * (S.connected[c.id] ? 1 : 0.6);
+        const rate = (SPAWN_BASE + SPAWN_PER_LEVEL * c.size) * mult * (S.connected[c.id] ? 1 : 0.6);
         c.acc += rate * dt;
         while (c.acc >= 1) { c.acc -= 1; spawnPassenger(c); }
       }
