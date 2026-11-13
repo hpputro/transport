@@ -52,7 +52,7 @@
   const KM_PER_TRAIN = 500; // jumlah kereta maksimal per jalur = panjang jalur (km) ÷ 500, minimal 1
   const UPKEEP = 20;         // perawatan harian: $20 per kereta
   const UPKEEP_PER_SEAT = 2; // ...+ $2 per kursi (kapasitas) kereta
-  const UPKEEP_PER_KM = 0.01; // ...+ panjang jalur (km) ÷ 100
+  const UPKEEP_TRACK_DIV = 50; // ...+ harga rel semua jalur ÷ 50 (2% per hari; ikut pengali medan)
   const PRICE_GROWTH = 1.5;  // harga kereta & gerbong naik 1,5× setiap kali membeli (per jalur)
   const START_MONEY = 1500;
   const SPEEDS = [0.25, 0.5, 1, 2, 3]; // tombol keyboard 1..5; bawaan = 1× (tingkat ke-3)
@@ -573,11 +573,11 @@
   /**
    * Biaya perawatan harian:
    *   kereta = jumlah kereta × $20 + total kapasitas kereta × $2
-   *   jalur  = total panjang semua jalur (km) ÷ 100
+   *   jalur  = total harga rel semua jalur ÷ 50 (rel di laut/gunung lebih mahal dirawat)
    */
   function upkeepCost() {
     const trains = S.trains.length * UPKEEP + S.trains.reduce((a, t) => a + t.line.cap, 0) * UPKEEP_PER_SEAT;
-    const lines = Math.round(S.lines.reduce((a, L) => a + lineKm(L), 0) * UPKEEP_PER_KM);
+    const lines = Math.round(S.lines.reduce((a, L) => a + L.segCosts.reduce((x, c) => x + c, 0), 0) / UPKEEP_TRACK_DIV);
     return { trains, lines, total: trains + lines };
   }
 
