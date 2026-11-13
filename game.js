@@ -769,10 +769,14 @@
     }
     tr.pax = keep;
     if (N >= 0) {
-      for (let k = 0; k < city.wait.length && tr.pax.length < L.cap;) {
-        const p = city.wait[k];
-        if (D(N, p.dest) < D(ci, p.dest)) { tr.pax.push(p); city.wait.splice(k, 1); moved++; }
-        else k++;
+      // satu kali saring (bukan splice di dalam loop): penumpang yang naik dipindah, sisanya tetap berurutan
+      if (tr.pax.length < L.cap && city.wait.length) {
+        const stay = [];
+        for (const p of city.wait) {
+          if (tr.pax.length < L.cap && D(N, p.dest) < D(ci, p.dest)) { tr.pax.push(p); moved++; }
+          else stay.push(p);
+        }
+        city.wait = stay;
       }
     }
     return moved;
@@ -2105,7 +2109,7 @@
   }
 
   function resize() {
-    view.dpr = window.devicePixelRatio || 1;
+    view.dpr = Math.min(2, window.devicePixelRatio || 1); // maks 2×: di layar 3× hampir tak terlihat bedanya, piksel jauh lebih sedikit
     canvas.width = Math.round(window.innerWidth * view.dpr);
     canvas.height = Math.round(window.innerHeight * view.dpr);
     // panel bawah yang disembunyikan tidak memakan ruang peta (hanya tombol ^ yang mengambang)
@@ -2145,19 +2149,45 @@
   window.addEventListener('resize', resize);
 
   // ================= Gambar =================
-  function draw(now) {
+  /**
+   * Latar (laut + medan) yang sudah diskalakan ke ukuran layar. Memperbesar gambar medan adalah pekerjaan
+   * menggambar termahal, jadi hanya dilakukan saat peta digeser/di-zoom/layar berubah; frame lain cukup menyalin 1:1.
+   */
+  const bg = { canvas: document.createElement('canvas'), key: '', terrain: null };
+  function drawBackground() {
+    const key = `${canvas.width}x${canvas.height}|${view.scale}|${view.ox}|${view.oy}|${view.dpr}`;
+    if (bg.key !== key || bg.terrain !== terrainCanvas) {
+      bg.key = key; bg.terrain = terrainCanvas;
+      if (bg.canvas.width !== canvas.width || bg.canvas.height !== canvas.height) { bg.canvas.width = canvas.width; bg.canvas.height = canvas.height; }
+      const g = bg.canvas.getContext('2d');
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = '#78b6d2';
+      g.fillRect(0, 0, bg.canvas.width, bg.canvas.height);
+      const k = view.scale * view.dpr;
+      g.setTransform(k, 0, 0, k, view.ox * view.dpr, view.oy * view.dpr);
+      g.drawImage(terrainCanvas, 0, 0, W, H);
+    }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#78b6d2';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bg.canvas, 0, 0);
+  }
+
+  const vis = { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const onScreen = (p) => p.x > vis.x0 && p.x < vis.x1 && p.y > vis.y0 && p.y < vis.y1;
+
+  function draw(now) {
+    drawBackground();
     const k = view.scale * view.dpr;
     ctx.setTransform(k, 0, 0, k, view.ox * view.dpr, view.oy * view.dpr);
-    ctx.drawImage(terrainCanvas, 0, 0, W, H);
 
     drawLines();
     drawLandmarks();
     drawPreview();
+    // bagian dunia yang terlihat (+ tepi untuk lingkaran, titik penumpang & nama); yang di luarnya tidak digambar
+    const m = 160 * UI;
+    vis.x0 = -view.ox / view.scale - m; vis.y0 = -view.oy / view.scale - m;
+    vis.x1 = (window.innerWidth - view.ox) / view.scale + m; vis.y1 = (window.innerHeight - view.oy) / view.scale + m;
     if (S.jawa) cullLabels();
-    for (const c of S.cities) drawCity(c, now);
+    for (const c of S.cities) if (onScreen(c)) drawCity(c, now);
     for (const tr of S.trains) drawTrain(tr);
 
     ctx.textAlign = 'center';
@@ -2259,6 +2289,7 @@
   function drawTrain(tr) {
     if (tr.line.stations.length < 2) return;
     const p = trainPos(tr);
+    if (!onScreen(p)) return;
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.ang);
@@ -2352,14 +2383,19 @@
       }
     } else {
       // Kampung & Desa: satu titik per penumpang di samping lingkaran
+      // semua titik satu warna digambar dalam satu path (maks. 2 perintah fill per kota, bukan satu per titik)
       const shown = Math.min(c.wait.length, 24);
-      for (let k = 0; k < shown; k++) {
-        const p = c.wait[k];
-        const col = k % 6, row = Math.floor(k / 6);
-        ctx.fillStyle = isFinite(D(c.id, p.dest)) ? '#3a4256' : '#e0565b';
+      for (const routed of [true, false]) {
         ctx.beginPath();
-        ctx.arc(X + r + 10 + col * 8, Y - r + 4 + row * 8, 3, 0, Math.PI * 2);
-        ctx.fill();
+        let any = false;
+        for (let k = 0; k < shown; k++) {
+          if (isFinite(D(c.id, c.wait[k].dest)) !== routed) continue;
+          const cx = X + r + 10 + (k % 6) * 8, cy = Y - r + 4 + Math.floor(k / 6) * 8;
+          ctx.moveTo(cx + 3, cy);
+          ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+          any = true;
+        }
+        if (any) { ctx.fillStyle = routed ? '#3a4256' : '#e0565b'; ctx.fill(); }
       }
       if (c.wait.length > 24) {
         ctx.fillStyle = '#d64045';
@@ -2450,5 +2486,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit, DAY_LEN, terrainAt, JAWA_CITIES };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit, DAY_LEN, terrainAt, JAWA_CITIES, newLine, addTrain, upgradeCap, recomputeNetwork };
 })();
