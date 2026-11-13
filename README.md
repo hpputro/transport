@@ -22,7 +22,19 @@ Sambungkan **semua ibu kota provinsi** di peta dalam satu jaringan. Kota muncul 
 | 6 | + Bali & Nusa Tenggara | 36 | 14 | $6500 |
 | 7 | + Maluku | 38 (semua) | 15 (semua) | $7500 |
 
-**Peta Bebas** (tombol di layar pembuka): pulau-pulau acak yang berbeda setiap permainan (bukan peta Indonesia), dengan ke-38 ibu kota provinsi muncul bertahap di posisi acak, menyebar dari tengah peta. Aturan jalur dan kas awal sama dengan Peta 7 (maks. 15 jalur, $7.500). Menang kalau semua 38 kota terhubung; setelah itu bisa main lagi dengan peta acak baru atau tetap di peta ini (mode santai). Rekornya disimpan terpisah.
+**Layar pembuka** punya empat pilihan: **Indonesia 1: Sumatra**, **Indonesia N: …** (lanjut dari progres terakhir; muncul kalau sudah menamatkan peta 1), **Satu Jawa**, dan **Random**.
+
+**Satu Jawa**: peta Pulau Jawa saja (dengan Madura), berisi **114 kota**: 29 kota otonom, 84 ibu kota kabupaten, dan Jakarta.
+- DKI Jakarta digabung menjadi satu kota "Jakarta": kelima kota administrasinya hanya berjarak beberapa km, dan Kepulauan Seribu ada di laut.
+- Kabupaten yang ibu kotanya bernama lain memakai nama ibu kotanya, misalnya Kab. Bogor → Cibinong, Kab. Bandung → Soreang, Kab. Malang → Kepanjen. Tooltip kota menampilkan kabupaten dan provinsinya.
+- Permainan dimulai di sekitar salah satu kota besar yang diundi (Jakarta, Bandung, Semarang, Yogyakarta, Surabaya, atau Malang), dengan dua kota terdekatnya. Setelah itu kota muncul dari yang dekat dengan kota yang sudah ada (acak di antara 3 terdekat), dan lebih rapat daripada peta Indonesia (setiap 10 detik + 0,12 detik per kota yang sudah ada).
+- Skala peta ±4,9× lebih rapat daripada peta Indonesia (1 piksel ≈ 0,25 km), sehingga batas kereta menjadi **1 kereta per 100 km** rel. Harga dan perawatan rel per piksel sama dengan peta Indonesia.
+- Aturan jalur dan kas awal sama dengan Indonesia 7 (maks. 15 jalur, $7.500).
+- Ujung Lampung dan Bali barat digambar abu-abu (luar wilayah, rel ×2). Pegunungan: Halimun–Salak, Gede–Pangrango, pegunungan Bandung, Ciremai, Slamet, Dieng–Sindoro–Sumbing, Merapi–Merbabu, Lawu, Muria, Gunung Sewu, Wilis, Kelud–Kawi, Arjuno, Bromo–Semeru, Argopuro, dan Raung–Ijen.
+- Karena kotanya rapat, nama kota yang akan menimpa nama kota yang lebih penting tidak digambar. Urutan pentingnya: kota besar, lalu level, lalu populasi. Nama itu muncul lagi saat peta di-zoom.
+- Warna grafik menurut provinsi: oranye Banten, hitam DKI Jakarta, hijau Jawa Barat, merah Jawa Tengah, ungu DI Yogyakarta, biru Jawa Timur. Rekor Satu Jawa disimpan terpisah.
+
+**Random** (dulu Peta Bebas): pulau-pulau acak yang berbeda setiap permainan (bukan peta Indonesia), dengan ke-38 ibu kota provinsi muncul bertahap di posisi acak, menyebar dari tengah peta. Aturan jalur dan kas awal sama dengan Peta 7 (maks. 15 jalur, $7.500). Menang kalau semua 38 kota terhubung; setelah itu bisa main lagi dengan peta acak baru atau tetap di peta ini (mode santai). Rekornya disimpan terpisah.
 
 **Urutan munculnya kota**
 - Setiap peta dimulai di wilayah yang baru ditambahkan: kota pertama acak, lalu kota terdekat di pulau yang sama, sampai 3 kota. Peta 7 dimulai dengan 2 kota karena Maluku hanya punya 2 ibu kota.
@@ -49,7 +61,7 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
 - **Setelah menang** kamu bisa memilih:
   - lanjut ke peta berikutnya, atau
   - tetap di peta ini dalam mode santai: kepuasan selalu penuh dan tidak bisa kalah. Tombol "Peta berikutnya" tetap tersedia di bagian atas.
-- **Progres peta** tersimpan di browser. Di layar pembuka ada tombol "Lanjut Peta N".
+- **Progres peta** tersimpan di browser. Di layar pembuka ada tombol "Indonesia N: …" untuk melanjutkan.
 
 - **Bangun jalur**: klik sebuah kota, lalu klik kota-kota berikutnya. Setiap ruas rel ada biayanya, tergantung jarak dan medan:
   - darat ×1
@@ -141,6 +153,7 @@ Panel bawah yang disembunyikan memberi peta ruang lebih; panel itu terbuka lagi 
 
 - `index.html`: kerangka halaman dan HUD
 - `style.css`: tampilan HUD
+- `jawa.js`: data peta Satu Jawa: garis pantai Jawa & Madura, pegunungan, dan koordinat 114 kota & ibu kota kabupaten
 - `geo.js`: data geografi: garis pantai yang disederhanakan, pegunungan utama, koordinat 38 ibu kota provinsi, dan urutan wilayah tiap peta
 - `game.js`: seluruh logika permainan (peta medan dari data geografi, rute penumpang dengan BFS, simulasi kereta, dan rendering canvas)
 

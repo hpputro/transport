@@ -6,7 +6,7 @@
   <title>Lintas Kota</title>
   <meta name="description" content="Game strategi transportasi: hubungkan kota-kota di kepulauan dengan jalur kereta.">
   <!-- ?v=... = penanda versi supaya browser tidak memakai CSS/JS lama dari cache; ganti setiap kali file berubah -->
-  <link rel="stylesheet" href="style.css?v=75fe5b2">
+  <link rel="stylesheet" href="style.css?v=23500c3">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -118,7 +118,7 @@
         <button id="ch-close" class="small" title="Tutup grafik">✕ Tutup</button>
       </div>
       <section class="ch-card">
-        <div class="ch-title">Populasi kota <span class="ch-note">— 10 kota terbesar · warna menurut pulau: merah Sumatra, hijau Jawa, biru Sulawesi, ungu Papua, kuning Kalimantan, hitam Maluku &amp; Nusa Tenggara (gradasi per kota)</span></div>
+        <div class="ch-title">Populasi kota <span class="ch-note" id="ch-note">— 10 kota terbesar · warna menurut pulau: merah Sumatra, hijau Jawa, biru Sulawesi, ungu Papua, kuning Kalimantan, hitam Maluku &amp; Nusa Tenggara (gradasi per kota)</span></div>
         <div class="ch-legend" id="ch-legend"></div>
         <div class="ch-plot ch-plot-tall" id="ch-plot-cities"></div>
         <table class="ch-table" id="ch-table"></table>
@@ -135,7 +135,7 @@
       <h1>Lintas Kota</h1>
       <p class="sub">Hubungkan ibu kota provinsi di seluruh Nusantara dengan jalur kereta sebelum warganya kehilangan kesabaran.</p>
       <ul>
-        <li><b>Target:</b> sambungkan <b>semua ibu kota provinsi</b> di peta dalam satu jaringan. Peta 1: Sumatra, lalu tiap peta menambah satu wilayah: Jawa, Sulawesi, Papua, Kalimantan, Bali &amp; Nusa Tenggara, dan Maluku. Kota muncul bertahap. <b>Peta Bebas</b>: pulau acak (berbeda tiap main) dengan ke-38 ibu kota di posisi acak.</li>
+        <li><b>Target:</b> sambungkan <b>semua ibu kota provinsi</b> di peta dalam satu jaringan. Peta 1: Sumatra, lalu tiap peta menambah satu wilayah: Jawa, Sulawesi, Papua, Kalimantan, Bali &amp; Nusa Tenggara, dan Maluku. Kota muncul bertahap. <b>Satu Jawa</b>: Pulau Jawa saja, dengan 114 kota &amp; ibu kota kabupaten. <b>Random</b>: pulau acak (berbeda tiap main) dengan ke-38 ibu kota di posisi acak.</li>
         <li><b>Bangun jalur:</b> klik sebuah kota, lalu klik kota lain untuk memasang rel. Biaya rel tergantung jarak dan medan: melintasi laut (jembatan) dan gunung (terowongan) lebih mahal.</li>
         <li><b>Kereta</b> mengantar penumpang ke kota tujuan, termasuk transit antar-jalur. Tiap penumpang yang sampai menambah kas dan kepuasan.</li>
         <li><b>Titik merah</b> di samping kota = penumpang yang tujuannya belum terjangkau jaringan.</li>
@@ -143,15 +143,17 @@
       </ul>
       <p class="keys">Spasi: jeda · 1–5: kecepatan (awal 3) · Esc: selesai membangun</p>
       <div class="res-actions">
-        <button id="b-start" class="primary">Mulai Peta 1</button>
-        <button id="b-continue" class="primary" hidden>Lanjut Peta 2</button>
-        <button id="b-free" title="Pulau acak (bukan peta Indonesia) dengan 38 ibu kota provinsi di posisi acak">Peta Bebas (acak, 38 kota)</button>
+        <button id="b-start" class="primary">Indonesia 1: Sumatra</button>
+        <button id="b-continue" class="primary" hidden>Indonesia 2: Jawa</button>
+        <button id="b-jawa" title="Peta Pulau Jawa dengan 114 kota & ibu kota kabupaten">Satu Jawa (114 kota)</button>
+        <button id="b-free" title="Pulau acak (bukan peta Indonesia) dengan 38 ibu kota provinsi di posisi acak">Random (pulau acak, 38 kota)</button>
       </div>
       <p class="best" id="best-start"></p>
     </div>
   </div>
 
-  <script src="geo.js?v=75fe5b2"></script>
-  <script src="game.js?v=75fe5b2"></script>
+  <script src="geo.js?v=23500c3"></script>
+  <script src="jawa.js?v=23500c3"></script>
+  <script src="game.js?v=23500c3"></script>
 </body>
 </html>

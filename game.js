@@ -7,6 +7,10 @@
   const LON0 = 93.8, LAT0 = 6.6, PX_PER_DEG = 90;
   const W = 4330, H = 1600;          // ukuran dunia: 93.8°–141.9° BT, 6.6° LU–11.2° LS
   const proj = (lon, lat) => ({ x: (lon - LON0) * PX_PER_DEG, y: (LAT0 - lat) * PX_PER_DEG });
+  // Peta "Satu Jawa": proyeksi sendiri yang jauh lebih rapat (lihat jawa.js), dunia berukuran sama
+  const JAWA = window.LINTAS_JAWA, JV = JAWA.VIEW;
+  const projJawa = (lon, lat) => ({ x: (lon - JV.lon0) * JV.ppd, y: (JV.lat0 - lat) * JV.ppd });
+  let PPD = PX_PER_DEG; // px per derajat pada peta yang sedang dimainkan (untuk menghitung km)
   const CELL = 10;                   // ukuran sel medan
   const GW = W / CELL, GH = H / CELL;
   const LAND = 0, WATER = 1, MOUNT = 2, FOREIGN = 3;
@@ -50,6 +54,7 @@
   const MAX_CAR = CAR_CAP.length - 1;
   const BASE_CAP = CAR_CAP[1];
   const KM_PER_TRAIN = 500; // jumlah kereta maksimal per jalur = panjang jalur (km) ÷ 500, minimal 1
+  const KM_PER_TRAIN_JAWA = 100; // peta Satu Jawa ±4,9× lebih rapat, jadi 1 kereta per 100 km
   const UPKEEP = 20;         // perawatan harian: $20 per kereta
   const UPKEEP_PER_SEAT = 2; // ...+ $2 per kursi (kapasitas) kereta
   const UPKEEP_TRACK_DIV = 50; // ...+ harga rel semua jalur ÷ 50 (2% per hari; ikut pengali medan)
@@ -98,6 +103,7 @@
   let terrainCanvas = null;
   let TERRAIN = null;        // grid medan yang sedang dipakai
   const INDO = { terrain: null, canvas: null }; // medan & gambar peta Indonesia (dibuat sekali saat halaman dimuat)
+  const JAWA_T = { terrain: null, canvas: null }; // medan & gambar peta Satu Jawa (dibuat saat pertama dimainkan)
   const view = {
     scale: 1, ox: 0, oy: 0, dpr: 1, fit: 1, zoom: 1, cx: W / 2, cy: H / 2,
     area: { x: 0, y: 0, w: 1, h: 1 }, needsInit: true,
@@ -168,25 +174,25 @@
     return best;
   }
 
-  /** Rasterisasi garis pantai & pegunungan dari geo.js menjadi grid medan (sekali saja). */
-  function buildTerrain() {
+  /** Rasterisasi garis pantai & pegunungan (geo.js atau jawa.js) menjadi grid medan (sekali per peta). */
+  function buildTerrain(G = { land: GEO.LAND, foreign: GEO.FOREIGN, ridges: GEO.RIDGES, lon0: LON0, lat0: LAT0, ppd: PX_PER_DEG }) {
     const withBox = (poly) => {
       const lons = poly.map((p) => p[0]), lats = poly.map((p) => p[1]);
       return { poly, x0: Math.min(...lons), x1: Math.max(...lons), y0: Math.min(...lats), y1: Math.max(...lats) };
     };
-    const land = GEO.LAND.map(withBox), foreign = GEO.FOREIGN.map(withBox);
+    const land = G.land.map(withBox), foreign = G.foreign.map(withBox);
     const hit = (list, lon, lat) => list.some((b) => lon >= b.x0 && lon <= b.x1 && lat >= b.y0 && lat <= b.y1 && inPoly(lon, lat, b.poly));
     const type = new Uint8Array(GW * GH);
     const noise = makeNoise(mulberry32(12345), 60, 24);
     const shade = new Float32Array(GW * GH);
     for (let cy = 0; cy < GH; cy++) {
       for (let cx = 0; cx < GW; cx++) {
-        const lon = LON0 + ((cx + 0.5) * CELL) / PX_PER_DEG, lat = LAT0 - ((cy + 0.5) * CELL) / PX_PER_DEG;
+        const lon = G.lon0 + ((cx + 0.5) * CELL) / G.ppd, lat = G.lat0 - ((cy + 0.5) * CELL) / G.ppd;
         const i = cy * GW + cx;
         shade[i] = noise(cx / GW, cy / GH);
         if (hit(foreign, lon, lat)) type[i] = FOREIGN;
         else if (hit(land, lon, lat)) {
-          const mount = GEO.RIDGES.some(([w, pts]) => distToPolyline(lon, lat, pts) < w * (0.75 + 0.5 * shade[i]));
+          const mount = G.ridges.some(([w, pts]) => distToPolyline(lon, lat, pts) < w * (0.75 + 0.5 * shade[i]));
           type[i] = mount ? MOUNT : LAND;
         } else type[i] = WATER;
       }
@@ -329,12 +335,44 @@
   // ================= Kota =================
   // Ibu kota provinsi di posisi aslinya (lihat geo.js)
   const ALL_CITIES = GEO.CITIES.map(([name, lon, lat, region, label]) => ({ name, region, label, ...proj(lon, lat) }));
+  // Kota & ibu kota kabupaten di Jawa (peta Satu Jawa); posisi label diatur otomatis supaya tidak bertumpuk
+  const JAWA_CITIES = JAWA.CITIES.map(([name, lon, lat, region, kab, major]) => ({ name, region, kab, major: !!major, ...projJawa(lon, lat) }));
+  placeLabels(JAWA_CITIES);
+  /**
+   * Pilih posisi label tiap kota (bawah/atas/kanan/kiri) yang paling sedikit menimpa label lain dan lingkaran kota lain.
+   * Kota besar didahulukan. Dihitung sekali untuk ukuran tampilan normal (UI = 1).
+   */
+  function placeLabels(list) {
+    const m = document.createElement('canvas').getContext('2d');
+    m.font = '600 16px system-ui, sans-serif';
+    const R = 12, h = 16, rects = [];
+    const boxFor = (c, pos) => {
+      const w = m.measureText(c.name).width;
+      if (pos === 'top') return { x0: c.x - w / 2, x1: c.x + w / 2, y0: c.y - R - 9 - h, y1: c.y - R - 6 };
+      if (pos === 'left') return { x0: c.x - R - 6 - w, x1: c.x - R - 6, y0: c.y + 6 - h, y1: c.y + 9 };
+      if (pos === 'right') return { x0: c.x + R + 6, x1: c.x + R + 6 + w, y0: c.y + 6 - h, y1: c.y + 9 };
+      return { x0: c.x - w / 2, x1: c.x + w / 2, y0: c.y + R + 20 - h, y1: c.y + R + 23 };
+    };
+    const ov = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+    for (const c of list.slice().sort((a, b) => b.major - a.major)) {
+      let best = 'bottom', bs = Infinity;
+      for (const pos of ['bottom', 'top', 'right', 'left']) {
+        const b = boxFor(c, pos);
+        let sc = pos === 'bottom' ? 0 : 1; // sedikit lebih suka di bawah kota
+        for (const r of rects) sc += ov(b, r);
+        for (const o of list) if (o !== c) sc += 2 * ov(b, { x0: o.x - R, x1: o.x + R, y0: o.y - R, y1: o.y + R });
+        if (sc < bs) { bs = sc; best = pos; }
+      }
+      c.label = best === 'bottom' ? undefined : best;
+      rects.push(boxFor(c, best));
+    }
+  }
   const levelRegions = (level) => GEO.LEVEL_REGIONS.slice(0, level);
   const levelCities = (level) => ALL_CITIES.filter((c) => levelRegions(level).includes(c.region));
   const mapCities = (level) => levelCities(level).length;
-  const regionName = (key) => (GEO.REGIONS[key] ? GEO.REGIONS[key].name : 'Peta Bebas');
+  const regionName = (key) => (JAWA.PROVINCES[key] ? JAWA.PROVINCES[key].name : GEO.REGIONS[key] ? GEO.REGIONS[key].name : 'Peta Bebas');
   /** Teks tombol pindah peta: "Peta 6: Nusa Tenggara" (nama wilayah yang ditambahkan peta itu, versi singkat). */
-  const mapButtonLabel = (level) => { const r = GEO.REGIONS[GEO.LEVEL_REGIONS[level - 1]]; return `Peta ${level}: ${r.short || r.name}`; };
+  const mapButtonLabel = (level) => { const r = GEO.REGIONS[GEO.LEVEL_REGIONS[level - 1]]; return `Indonesia ${level}: ${r.short || r.name}`; };
   /** Nama peta: "Sumatra", "Sumatra + Jawa", ... (dipendekkan untuk peta besar). */
   function levelTitle(level) {
     const names = levelRegions(level).map(regionName);
@@ -397,13 +435,31 @@
     return pick(options);
   }
 
+  /**
+   * Satu Jawa: mulai di salah satu kota besar (diundi), lalu kota muncul dari yang dekat dengan kota yang sudah ada:
+   * dua kota awal berikutnya = yang terdekat, setelah itu acak di antara 3 kota tersisa yang terdekat.
+   */
+  function jawaCityDef() {
+    const left = S.remaining;
+    if (!left.length) return null;
+    if (!S.cities.length) {
+      const starts = left.filter((d) => JAWA.STARTS.includes(d.name));
+      return starts[Math.floor(S.rng() * starts.length)] || left[0];
+    }
+    const near = (d) => Math.min(...S.cities.map((c) => dist(c, d)));
+    const sorted = left.map((d) => ({ d, n: near(d) })).sort((a, b) => a.n - b.n);
+    const k = Math.min(S.cities.length < 3 ? 1 : 3, sorted.length);
+    return sorted[Math.floor(S.rng() * k)].d;
+  }
+
   /** Munculkan kota berikutnya. */
   function spawnCity() {
-    const def = S.free ? freeCityDef() : nextCityDef();
+    const def = S.free ? freeCityDef() : S.jawa ? jawaCityDef() : nextCityDef();
     if (!def) return null;
     S.remaining = S.remaining.filter((d) => d.name !== def.name);
     const city = {
       id: S.cities.length, name: def.name, region: def.region, label: def.label, x: def.x, y: def.y,
+      kab: def.kab, major: def.major, color: def.color,
       // kota baru = Kampung (level 0) sampai tersambung jalur
       size: 0, visits: 0, pop: 0, wait: [], acc: S.rng() * 0.6, born: S.t, overT: 0,
     };
@@ -564,11 +620,12 @@
   function lineKm(L) {
     let len = 0;
     for (let s = 0; s + 1 < L.stations.length; s++) len += dist(S.cities[L.stations[s]], S.cities[L.stations[s + 1]]);
-    return (len / PX_PER_DEG) * 111;
+    return (len / PPD) * 111;
   }
 
   /** Jumlah kereta maksimal sebuah jalur: 1 kereta per 500 km rel (dibulatkan ke atas), minimal 1. */
-  const maxTrains = (L) => Math.max(1, Math.ceil(lineKm(L) / KM_PER_TRAIN));
+  const kmPerTrain = () => (S && S.jawa ? KM_PER_TRAIN_JAWA : KM_PER_TRAIN);
+  const maxTrains = (L) => Math.max(1, Math.ceil(lineKm(L) / kmPerTrain()));
 
   /**
    * Biaya perawatan harian:
@@ -584,7 +641,7 @@
   function addTrain(L) {
     if (L.stations.length < 2) return;
     const max = maxTrains(L);
-    if (L.trains.length >= max) { toast(`Jalur ${L.name} maks ${max} kereta (1 kereta per ${KM_PER_TRAIN} km)`, 'bad'); return; }
+    if (L.trains.length >= max) { toast(`Jalur ${L.name} maks ${max} kereta (1 kereta per ${kmPerTrain()} km)`, 'bad'); return; }
     const price = trainPrice(L);
     if (S.money < price) { toast(`Kas tidak cukup (butuh $${price})`, 'bad'); return; }
     S.money -= price;
@@ -812,10 +869,13 @@
    * Mulai permainan baru. free = Peta Bebas: pulau acak dengan ke-38 ibu kota di posisi acak;
    * aturan jalur & kas awal mengikuti peta terakhir (Peta 7).
    */
-  function newGame(seed, level, free = false) {
-    if (free) level = LAST_MAP;
+  function newGame(seed, level, mode = 'indo') {
+    if (mode === true) mode = 'free';
+    const free = mode === 'free', jawa = mode === 'jawa';
+    if (free || jawa) level = LAST_MAP; // aturan jalur & kas awal = peta terakhir
     S = {
-      seed, rng: mulberry32(seed), level, free, target: free ? ALL_CITIES.length : mapCities(level),
+      seed, rng: mulberry32(seed), level, mode, free, jawa,
+      target: jawa ? JAWA_CITIES.length : free ? ALL_CITIES.length : mapCities(level),
       t: 0, day: 1, money: START_MONEY + (level - 1) * 1000, earned: 0, population: 0, satisfaction: 100,
       cities: [], lines: [], trains: [], dist: [], segMap: new Map(), connected: [], largest: 0,
       nextCityAt: 14, speed: 1, paused: false, started: false, over: false,
@@ -829,15 +889,22 @@
     };
     // kota peta ini yang belum muncul (Peta Bebas: hanya namanya, posisinya diacak saat muncul)
     S.history = []; // populasi negara & kota per hari (untuk grafik)
-    S.remaining = free ? ALL_CITIES.map((c) => ({ name: c.name })) : levelCities(level).slice();
+    S.remaining = jawa ? JAWA_CITIES.slice() : free ? ALL_CITIES.map((c) => ({ name: c.name })) : levelCities(level).slice();
     // undian 50-50 untuk aturan menyeberang yang punya pengecualian (lihat nextCityDef)
     S.spreadPlan = GEO.SPREAD.map((rule) => (rule.ifPresent ? (S.rng() < 0.5 ? 'before' : 'after') : null));
     // medan: Peta Bebas dibuat acak tiap permainan; peta Indonesia memakai medan yang sudah dibuat sekali
     if (free) { TERRAIN = genFreeTerrain(S.rng); renderTerrain(); }
-    else if (TERRAIN !== INDO.terrain) { TERRAIN = INDO.terrain; terrainCanvas = INDO.canvas; }
-    view.bounds = free ? { ...FREE_BOUNDS } : levelBounds(level);
+    else if (jawa) {
+      if (!JAWA_T.terrain) {
+        JAWA_T.terrain = TERRAIN = buildTerrain({ land: JAWA.LAND, foreign: JAWA.FOREIGN, ridges: JAWA.RIDGES, lon0: JV.lon0, lat0: JV.lat0, ppd: JV.ppd });
+        renderTerrain();
+        JAWA_T.canvas = terrainCanvas;
+      } else { TERRAIN = JAWA_T.terrain; terrainCanvas = JAWA_T.canvas; }
+    } else if (TERRAIN !== INDO.terrain) { TERRAIN = INDO.terrain; terrainCanvas = INDO.canvas; }
+    PPD = jawa ? JV.ppd : PX_PER_DEG;
+    view.bounds = free ? { ...FREE_BOUNDS } : jawa ? { x0: 0, y0: 0, x1: W, y1: H } : levelBounds(level);
     // kota awal: maks. 3, semuanya di pulau baru (Peta 7 / Maluku hanya punya 2)
-    const startCount = free ? 3 : Math.min(3, S.remaining.filter((d) => d.region === GEO.LEVEL_REGIONS[level - 1]).length);
+    const startCount = free || jawa ? 3 : Math.min(3, S.remaining.filter((d) => d.region === GEO.LEVEL_REGIONS[level - 1]).length);
     for (let i = 0; i < startCount; i++) spawnCity();
     recordHistory();
     renderChips();
@@ -861,7 +928,8 @@
       if (S.largest === S.cities.length) S.nextCityAt = Math.min(S.nextCityAt, S.t + 5);
       if (S.t >= S.nextCityAt) {
         const c = spawnCity();
-        S.nextCityAt = S.t + 15 + S.cities.length * 0.6;
+        // Satu Jawa punya 114 kota, jadi kota baru datang lebih rapat
+        S.nextCityAt = S.t + (S.jawa ? 10 + S.cities.length * 0.12 : 15 + S.cities.length * 0.6);
         if (c) toast(S.free ? `Kota baru: ${c.name} (${S.cities.length}/${S.target})` : `Kota baru: ${c.name}, ${regionName(c.region)} (${S.cities.length}/${S.target})`, 'good');
         else S.target = S.cities.length; // peta sudah terlalu padat; target disesuaikan
       }
@@ -936,11 +1004,26 @@
   }
 
   /** Kunci rekor & label peta yang sedang dimainkan. */
-  const recordKey = () => (S.free ? 'free' : S.level);
+  const recordKey = () => (S.jawa ? 'jawa' : S.free ? 'free' : S.level);
+  const mapName = () => (S.jawa ? 'Satu Jawa' : S.free ? 'Peta Bebas' : `peta ${S.level}`);
 
   function win() {
     S.won = true;
     S.winChoice = true;
+    if (S.jawa) {
+      const best = recordBest('jawa', S.population);
+      showResult({
+        title: 'Satu Jawa tersambung!',
+        kind: 'good',
+        reason: `Semua ${S.cities.length} kota & ibu kota kabupaten di Jawa terhubung dalam satu jaringan. Kalau tetap di peta ini, kepuasan selalu penuh dan kamu tidak bisa kalah.`,
+        stats: [['Populasi', S.population], ['Rekor populasi Satu Jawa', best], ['Hari', S.day]],
+        actions: [
+          { label: 'Main lagi Satu Jawa', primary: true, fn: () => startMap(0, 'jawa') },
+          { label: 'Tetap di peta ini', fn: stayRelaxed },
+        ],
+      });
+      return;
+    }
     if (S.free) {
       const best = recordBest('free', S.population);
       showResult({
@@ -949,7 +1032,7 @@
         reason: `Semua ${S.cities.length} kota terhubung dalam satu jaringan. Kalau tetap di peta ini, kepuasan selalu penuh dan kamu tidak bisa kalah.`,
         stats: [['Populasi negara', S.population], ['Rekor populasi Peta Bebas', best], ['Hari', S.day]],
         actions: [
-          { label: 'Main lagi Peta Bebas (peta acak baru)', primary: true, fn: () => startMap(0, true) },
+          { label: 'Main lagi Peta Bebas (peta acak baru)', primary: true, fn: () => startMap(0, 'free') },
           { label: 'Tetap di peta ini', fn: stayRelaxed },
         ],
       });
@@ -993,25 +1076,27 @@
       reason: full.length
         ? `Kota penuh: ${names}${full.length > 4 ? `, +${full.length - 4} lainnya` : ''}. Kota bertanda merah di peta.`
         : 'Kepuasan warga habis.',
-      stats: [['Populasi negara', S.population], [`Rekor populasi ${S.free ? 'Peta Bebas' : `peta ${S.level}`}`, best], ['Kota terhubung', `${Math.max(0, S.largest)}/${S.target}`]],
+      stats: [['Populasi negara', S.population], [`Rekor populasi ${mapName()}`, best], ['Kota terhubung', `${Math.max(0, S.largest)}/${S.target}`]],
       actions: [{
-        label: S.free ? 'Main lagi Peta Bebas (peta acak baru)' : `Ulangi Peta ${S.level}`,
+        label: S.jawa ? 'Main lagi Satu Jawa' : S.free ? 'Main lagi Peta Bebas (peta acak baru)' : `Ulangi Indonesia ${S.level}`,
         primary: true,
-        fn: () => startMap(S.level, S.free),
+        fn: () => startMap(S.level, S.mode),
       }],
     });
     if (full.length) { view.cx = full[0].x; view.cy = full[0].y; applyView(); }
   }
 
-  function startMap(level, free = false) {
-    newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, level, free);
+  function startMap(level, mode = 'indo') {
+    if (mode === true) mode = 'free';
+    newGame((Date.now() ^ (Math.random() * 1e9)) >>> 0, level, mode);
     view.needsInit = true;
     S.started = true;
     $('overlay').hidden = true;
     hideResult();
     setSpeed(1);
     refreshUi();
-    if (free) { toast(`Peta Bebas: pulau acak · hubungkan ${S.target} kota dalam satu jaringan`); return; }
+    if (mode === 'free') { toast(`Peta Bebas: pulau acak · hubungkan ${S.target} kota dalam satu jaringan`); return; }
+    if (mode === 'jawa') { toast(`Satu Jawa: mulai dari ${S.cities[0].name} · hubungkan ${S.target} kota & ibu kota kabupaten dalam satu jaringan`); return; }
     const added = level > 1 ? `+${regionName(GEO.LEVEL_REGIONS[level - 1])}` : regionName(GEO.LEVEL_REGIONS[0]);
     toast(`Peta ${level}: ${added} · hubungkan ${S.target} kota dalam satu jaringan`);
   }
@@ -1275,7 +1360,8 @@
     toast(`Peta 1: Sumatra · hubungkan ${S.target} kota · klik sebuah kota untuk mulai membangun jalur`);
   });
   $('b-continue').addEventListener('click', () => startMap(Math.min(LAST_MAP, loadNum('map'))));
-  $('b-free').addEventListener('click', () => startMap(0, true));
+  $('b-free').addEventListener('click', () => startMap(0, 'free'));
+  $('b-jawa').addEventListener('click', () => startMap(0, 'jawa'));
   $('b-next').addEventListener('click', () => { if (S.won && S.level < LAST_MAP) startMap(S.level + 1); });
 
   // ================= UI DOM =================
@@ -1426,7 +1512,7 @@
     const maxT = maxTrains(L);
     $('lp-info').textContent = `${L.trains.length}/${maxT} kereta · muat ${L.cap}`;
     $('b-train').title = L.trains.length >= maxT
-      ? `Maks ${maxT} kereta: 1 kereta per ${KM_PER_TRAIN} km rel (jalur ini ${Math.round(lineKm(L)).toLocaleString('id-ID')} km). Perpanjang jalur untuk menambah batas.`
+      ? `Maks ${maxT} kereta: 1 kereta per ${kmPerTrain()} km rel (jalur ini ${Math.round(lineKm(L)).toLocaleString('id-ID')} km). Perpanjang jalur untuk menambah batas.`
       : `Kereta baru muncul di ${depo}, berangkat ke arah ${next}`;
     $('b-extend').classList.toggle('active', S.building);
     const tp = trainPrice(L), cp = capPrice(L);
@@ -1512,9 +1598,20 @@
     { regions: ['kalimantan'], h: [40, 52], s: 95, l: [36, 54] },        // kuning
     { regions: ['maluku', 'nusatenggara'], h: [0, 0], s: 0, l: [6, 62] }, // hitam
   ];
+  // Satu Jawa: warna per provinsi, gradasi per kota
+  const JAWA_HUES = [
+    { regions: ['banten'], h: [22, 32], s: 90, l: [30, 60] },            // oranye
+    { regions: ['jakarta'], h: [0, 0], s: 0, l: [12, 12] },              // hitam
+    { regions: ['jabar'], h: [128, 140], s: 62, l: [18, 58] },           // hijau
+    { regions: ['jateng'], h: [0, 8], s: 78, l: [24, 70] },              // merah
+    { regions: ['diy'], h: [272, 282], s: 55, l: [26, 66] },             // ungu
+    { regions: ['jatim'], h: [212, 205], s: 78, l: [22, 68] },           // biru
+  ];
   const CITY_COLOR = {};
-  for (const g of REGION_HUES) {
-    const list = ALL_CITIES.filter((c) => g.regions.includes(c.region));
+  for (const g of JAWA_HUES) shadeGroup(JAWA_CITIES.filter((c) => g.regions.includes(c.region)), g, (c, col) => { c.color = col; });
+  for (const g of REGION_HUES) shadeGroup(ALL_CITIES.filter((c) => g.regions.includes(c.region)), g, (c, col) => { CITY_COLOR[c.name] = col; });
+  /** Beri tiap kota dalam satu kelompok gradasi warnanya sendiri. */
+  function shadeGroup(list, g, set) {
     // kota yang bersebelahan di daftar (biasanya bertetangga di peta) diberi gradasi yang berjauhan:
     // urutan gradasi 0, ½N, 1, ½N+1, … (mis. 10 kota: 0 5 1 6 2 7 3 8 4 9)
     const half = Math.ceil(list.length / 2);
@@ -1522,7 +1619,7 @@
       const step = i % 2 ? half + (i >> 1) : i >> 1;
       const t = list.length > 1 ? step / (list.length - 1) : 0;
       const lerp = ([a, b]) => a + (b - a) * t;
-      CITY_COLOR[c.name] = `hsl(${lerp(g.h).toFixed(0)}, ${g.s}%, ${lerp(g.l).toFixed(0)}%)`;
+      set(c, `hsl(${lerp(g.h).toFixed(0)}, ${g.s}%, ${lerp(g.l).toFixed(0)}%)`);
     });
   }
   const fmt = (v) => Math.round(v).toLocaleString('id-ID');
@@ -1537,7 +1634,7 @@
     const xs = pts.map((p) => p.x);
     const ranked = S.cities.slice().sort((a, b) => b.pop - a.pop || a.name.localeCompare(b.name, 'id'));
     const top = ranked.slice(0, CHART_TOP); // kota di luar 10 besar tidak digambar
-    const series = top.map((c) => ({ name: c.name, color: CITY_COLOR[c.name] || '#898781', city: c, values: pts.map((p) => p.pops[c.id] || 0) }));
+    const series = top.map((c) => ({ name: c.name, color: c.color || CITY_COLOR[c.name] || '#898781', city: c, values: pts.map((p) => p.pops[c.id] || 0) }));
     return { xs, total: pts.map((p) => p.total), series };
   }
 
@@ -1640,7 +1737,10 @@
     const d = chartData();
     chart.data = d;
     const n = d.xs.length;
-    $('ch-sub').textContent = `${S.free ? 'Peta Bebas' : `Peta ${S.level}`} · hari ${S.day} · ${S.cities.length}/${S.target} kota`;
+    $('ch-note').textContent = S.jawa
+      ? '— 10 kota terbesar · warna menurut provinsi: oranye Banten, hitam DKI Jakarta, hijau Jawa Barat, merah Jawa Tengah, ungu DI Yogyakarta, biru Jawa Timur (gradasi per kota)'
+      : '— 10 kota terbesar · warna menurut pulau: merah Sumatra, hijau Jawa, biru Sulawesi, ungu Papua, kuning Kalimantan, hitam Maluku & Nusa Tenggara (gradasi per kota)';
+    $('ch-sub').textContent = `${S.jawa ? 'Satu Jawa' : S.free ? 'Peta Bebas' : `Indonesia ${S.level}`} · hari ${S.day} · ${S.cities.length}/${S.target} kota`;
     // legenda (selalu ada untuk ≥ 2 seri)
     const leg = $('ch-legend');
     leg.textContent = '';
@@ -1787,7 +1887,7 @@
       c[2].textContent = r.stations;
       c[3].textContent = r.km.toLocaleString('id-ID'); // km
       c[4].textContent = r.trains;
-      c[4].title = `${r.trains} dari maks ${maxTrains(L)} kereta (1 per ${KM_PER_TRAIN} km)`;
+      c[4].title = `${r.trains} dari maks ${maxTrains(L)} kereta (1 per ${kmPerTrain()} km)`;
       c[5].textContent = r.cars;
       c[5].title = `Gerbong level ${r.cars} · muat ${L.cap} penumpang per kereta`;
       c[6].textContent = r.seats ? `${Math.round(r.occ * 100)}%` : '–';
@@ -1926,19 +2026,19 @@
       cityPanel.last = performance.now();
       if (cityPanel.mode === 'lines') renderLinePanel(); else renderCityPanel();
     }
-    const key = [S.level, S.free, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.population, Math.round(S.satisfaction)].join('|');
+    const key = [S.level, S.mode, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.population, Math.round(S.satisfaction)].join('|');
     if (key !== lastHud) {
       lastHud = key;
       const newest = regionName(GEO.LEVEL_REGIONS[S.level - 1]);
-      $('s-map').textContent = S.free
+      $('s-map').textContent = S.jawa ? `Satu Jawa${S.relaxed ? ' · santai' : ''}` : S.free
         ? `Peta Bebas${S.relaxed ? ' · santai' : ''}`
         : `Peta ${S.level} · ${S.level > 1 ? '+' : ''}${newest}${S.relaxed ? ' · santai' : ''}`;
-      $('s-map').title = S.free ? 'Pulau acak dengan 38 ibu kota provinsi' : levelRegions(S.level).map(regionName).join(' + ');
+      $('s-map').title = S.jawa ? `${S.target} kota & ibu kota kabupaten di Pulau Jawa` : S.free ? 'Pulau acak dengan 38 ibu kota provinsi' : levelRegions(S.level).map(regionName).join(' + ');
       // jumlah kota dalam jaringan terbesar / target kota peta ini
       $('s-conn').textContent = `${S.largest}/${S.target} kota`;
       $('s-conn').title = `Kota terhubung dalam satu jaringan. ${S.cities.length} dari ${S.target} kota sudah muncul.`;
       $('s-sat-lbl').textContent = S.relaxed ? 'Kepuasan (aman)' : 'Kepuasan';
-      $('b-next').hidden = !(S.relaxed && !S.free && S.level < LAST_MAP);
+      $('b-next').hidden = !(S.relaxed && !S.free && !S.jawa && S.level < LAST_MAP);
       $('b-next').textContent = mapButtonLabel(Math.min(S.level + 1, LAST_MAP));
       $('s-day').textContent = S.day;
       const m = $('s-money');
@@ -1975,6 +2075,7 @@
     //   Terlalu padat: minat dikunjungi 79%
     //   Jalur: Merah, Kuning
     tip.textContent = `${c.name}: ${LEVEL_CODE[c.size]} ${SIZE_NAME[c.size]} (${visits})` +
+      (S.jawa ? `\n${c.kab ? `Ibu kota ${c.kab}` : c.region === 'jakarta' ? 'Ibu kota negara' : `Kota ${c.name}`}, ${regionName(c.region)}` : '') +
       `\nPopulasi: ${c.wait.length}/${cap} (${c.pop})` +
       (top ? `\n${top}` : '') +
       (noRoute ? `\nBelum ada rute: ${noRoute}` : '') +
@@ -2028,6 +2129,8 @@
       view.needsInit = false;
       const cover = Math.max(view.area.w / bw, view.area.h / bh) / view.fit;
       view.zoom = view.area.w < 700 && view.fit < 0.4 ? clamp(Math.min(cover, 0.5 / view.fit), 1, MAX_ZOOM) : 1;
+      // Satu Jawa: pulau terlalu panjang untuk 3 kota awal; mulai dengan skala ±0,9 (seperti peta Indonesia di-zoom)
+      if (S.jawa) view.zoom = clamp(0.9 / view.fit, 1, MAX_ZOOM);
       const n = S.cities.length || 1;
       view.cx = S.cities.reduce((s, c) => s + c.x, 0) / n;
       view.cy = S.cities.reduce((s, c) => s + c.y, 0) / n;
@@ -2053,6 +2156,7 @@
     drawLines();
     drawLandmarks();
     drawPreview();
+    if (S.jawa) cullLabels();
     for (const c of S.cities) drawCity(c, now);
     for (const tr of S.trains) drawTrain(tr);
 
@@ -2066,6 +2170,29 @@
       ctx.fillText(p.text, p.x, p.y);
     }
     ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Satu Jawa: tentukan nama kota mana yang digambar frame ini. Kota diurutkan dari yang paling penting
+   * (kota besar, level tertinggi, populasi terbesar); nama yang menimpa nama yang sudah dipilih dilewati.
+   * Jadi nama hanya hilang kalau memang tidak ada ruang, dan muncul lagi saat peta di-zoom.
+   */
+  function cullLabels() {
+    ctx.font = '600 16px system-ui, sans-serif';
+    const kept = [];
+    const order = S.cities.slice().sort((a, b) => b.major - a.major || b.size - a.size || b.pop - a.pop || a.id - b.id);
+    for (const c of order) {
+      if (c.labelW === undefined) c.labelW = ctx.measureText(c.name).width;
+      const r = SIZE_R[c.size], w = c.labelW;
+      let x0, x1, y0, y1; // kotak nama relatif pusat kota (sebelum diskalakan UI), sama dengan posisi gambar di drawCity
+      if (c.label === 'top') { x0 = -w / 2; x1 = w / 2; y0 = -r - 25; y1 = -r - 6; }
+      else if (c.label === 'left') { x0 = -r - 6 - w; x1 = -r - 6; y0 = -10; y1 = 9; }
+      else if (c.label === 'right') { x0 = r + 6; x1 = r + 6 + w; y0 = -10; y1 = 9; }
+      else { x0 = -w / 2; x1 = w / 2; y0 = r + 4; y1 = r + 23; }
+      const box = { x0: c.x + x0 * UI, x1: c.x + x1 * UI, y0: c.y + y0 * UI, y1: c.y + y1 * UI };
+      c.showLabel = !kept.some((k) => box.x0 < k.x1 && box.x1 > k.x0 && box.y0 < k.y1 && box.y1 > k.y0);
+      if (c.showLabel) kept.push(box);
+    }
   }
 
   function drawLines() {
@@ -2247,11 +2374,15 @@
     ctx.textAlign = 'center';
     if (c.label === 'top') ly = Y - r - 9;
     else if (c.label === 'left') { lx = X - r - 6; ly = Y + 6; ctx.textAlign = 'right'; }
-    ctx.lineWidth = 3.5;
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.strokeText(c.name, lx, ly);
-    ctx.fillStyle = '#1f2433';
-    ctx.fillText(c.name, lx, ly);
+    else if (c.label === 'right') { lx = X + r + 6; ly = Y + 6; ctx.textAlign = 'left'; }
+    // Satu Jawa: nama yang akan menimpa nama kota lain yang lebih penting tidak digambar (lihat cullLabels)
+    if (!S.jawa || c.showLabel) {
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.strokeText(c.name, lx, ly);
+      ctx.fillStyle = '#1f2433';
+      ctx.fillText(c.name, lx, ly);
+    }
     ctx.textAlign = 'center';
     // kota yang dipilih dari daftar kota: cincin biru berdenyut sebentar
     if (S.focus && S.focus.id === c.id && performance.now() < S.focus.until) {
@@ -2309,13 +2440,15 @@
     $('b-start').classList.remove('primary');
   }
   const bests = [];
-  for (let l = 1; l <= LAST_MAP; l++) { const b = loadNum('best.' + l); if (b) bests.push(`Peta ${l}: ${b}`); }
+  for (let l = 1; l <= LAST_MAP; l++) { const b = loadNum('best.' + l); if (b) bests.push(`Indonesia ${l}: ${b}`); }
+  const bestJawa = loadNum('best.jawa');
+  if (bestJawa) bests.push(`Satu Jawa: ${bestJawa}`);
   const bestFree = loadNum('best.free');
-  if (bestFree) bests.push(`Peta Bebas: ${bestFree}`);
+  if (bestFree) bests.push(`Random: ${bestFree}`);
   if (bests.length) $('best-start').textContent = `Rekor populasi negara · ${bests.join(' · ')}`;
   resize();
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit, DAY_LEN, terrainAt };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit, DAY_LEN, terrainAt, JAWA_CITIES };
 })();
