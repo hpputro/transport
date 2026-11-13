@@ -34,7 +34,7 @@
   };
   /** Alasan jalur ke-(i+1) belum bisa dipakai. */
   const lockReason = (i) => (i >= linesForLevel(S.level)
-    ? `Jalur ${LINE_NAMES[i]} tersedia mulai Peta ${levelForLine(i)}`
+    ? `Jalur ${LINE_NAMES[i]} tersedia mulai Indonesia ${levelForLine(i)}`
     : `Jalur ${LINE_NAMES[i]} terbuka setelah populasi negara ${UNLOCK_AT[i]}`);
 
   const DAY_LEN = 20;        // detik per hari permainan
@@ -1386,28 +1386,16 @@
     setTimeout(() => el.remove(), ms + 500);
   }
 
-  function renderChips() {
+  /**
+   * Chip jalur + chip stiker. Tombolnya dibuat sekali (beserta listener-nya); setiap pemanggilan hanya
+   * memperbarui teks, warna, dan kelasnya. Sebelumnya semua tombol dibongkar & dibuat ulang tiap perubahan jalur.
+   */
+  const chipEls = [];
+  let stickerEl = null;
+  function buildChips() {
     const box = $('chips');
-    box.innerHTML = '';
     for (let i = 0; i < LINE_COLORS.length; i++) {
       const b = document.createElement('button');
-      const L = S.lines.find((l) => l.id === i);
-      b.className = 'chip';
-      b.style.background = LINE_COLORS[i];
-      b.style.color = L ? '#fff' : LINE_COLORS[i];
-      if (i >= S.unlocked) {
-        b.classList.add('locked');
-        b.textContent = '🔒';
-        b.title = lockReason(i);
-      } else if (!L) {
-        b.classList.add('free');
-        b.textContent = '+';
-        b.title = `Jalur ${LINE_NAMES[i]} baru`;
-      } else {
-        b.textContent = L.trains.length;
-        b.title = `Jalur ${LINE_NAMES[i]} · ${L.trains.length} kereta`;
-      }
-      if (S.selected && S.selected.id === i) b.classList.add('sel');
       b.addEventListener('click', () => {
         if (blocked()) return;
         S.placing = false;
@@ -1419,23 +1407,13 @@
         refreshUi();
       });
       box.appendChild(b);
+      chipEls.push(b);
     }
     // chip stiker landmark: menampilkan landmark berikutnya (yang termurah yang belum terpasang)
-    const li = nextLandmark();
-    const s = document.createElement('button');
-    s.className = 'chip sticker';
-    if (li < 0) {
-      s.classList.add('locked');
-      s.textContent = '✓';
-      s.title = `Semua ${LANDMARKS.length} landmark sudah terpasang`;
-    } else {
-      const [icon, name] = LANDMARKS[li];
-      s.textContent = icon;
-      s.title = `${name} · $${landmarkPrice(li).toLocaleString('id-ID')} — klik, lalu klik di daratan untuk memasang. Klik dua kali landmark di peta untuk menghapusnya.`;
-      if (S.placing) s.classList.add('sel');
-    }
-    s.addEventListener('click', () => {
+    stickerEl = document.createElement('button');
+    stickerEl.addEventListener('click', () => {
       if (blocked()) return;
+      const li = nextLandmark();
       if (li < 0) { toast(`Semua ${LANDMARKS.length} landmark sudah terpasang`); return; }
       if (S.placing) { cancelPlacing(); return; }
       const price = landmarkPrice(li);
@@ -1444,7 +1422,37 @@
       S.placing = true;
       refreshUi();
     });
-    box.appendChild(s);
+    box.appendChild(stickerEl);
+  }
+  /** Ubah properti DOM hanya kalau nilainya berbeda (menghindari kerja tata letak yang tidak perlu). */
+  const setIf = (obj, key, val) => { if (obj[key] !== val) obj[key] = val; };
+  function renderChips() {
+    if (!chipEls.length) buildChips();
+    for (let i = 0; i < LINE_COLORS.length; i++) {
+      const b = chipEls[i];
+      const L = S.lines.find((l) => l.id === i);
+      let cls = 'chip', text, title;
+      if (i >= S.unlocked) { cls += ' locked'; text = '🔒'; title = lockReason(i); }
+      else if (!L) { cls += ' free'; text = '+'; title = `Jalur ${LINE_NAMES[i]} baru`; }
+      else { text = String(L.trains.length); title = `Jalur ${LINE_NAMES[i]} · ${L.trains.length} kereta`; }
+      if (S.selected && S.selected.id === i) cls += ' sel';
+      setIf(b, 'className', cls);
+      setIf(b, 'textContent', text);
+      setIf(b, 'title', title);
+      setIf(b.style, 'background', LINE_COLORS[i]);
+      setIf(b.style, 'color', L ? '#fff' : LINE_COLORS[i]);
+    }
+    const s = stickerEl, li = nextLandmark();
+    if (li < 0) {
+      setIf(s, 'className', 'chip sticker locked');
+      setIf(s, 'textContent', '✓');
+      setIf(s, 'title', `Semua ${LANDMARKS.length} landmark sudah terpasang`);
+    } else {
+      const [icon, name] = LANDMARKS[li];
+      setIf(s, 'className', 'chip sticker' + (S.placing ? ' sel' : ''));
+      setIf(s, 'textContent', icon);
+      setIf(s, 'title', `${name} · $${landmarkPrice(li).toLocaleString('id-ID')} — klik, lalu klik di daratan untuk memasang. Klik dua kali landmark di peta untuk menghapusnya.`);
+    }
   }
 
   // ---- stiker landmark ----
@@ -2113,8 +2121,11 @@
 
   function resize() {
     view.dpr = Math.min(2, window.devicePixelRatio || 1); // maks 2×: di layar 3× hampir tak terlihat bedanya, piksel jauh lebih sedikit
-    canvas.width = Math.round(window.innerWidth * view.dpr);
-    canvas.height = Math.round(window.innerHeight * view.dpr);
+    // ukuran kanvas hanya diubah kalau memang berbeda: menetapkannya ulang (walau sama) membuang & mengalokasikan
+    // ulang seluruh buffer kanvas, dan resize() dipanggil setiap kali jalur berubah
+    const cw = Math.round(window.innerWidth * view.dpr), ch = Math.round(window.innerHeight * view.dpr);
+    if (canvas.width !== cw) canvas.width = cw;
+    if (canvas.height !== ch) canvas.height = ch;
     // panel bawah yang disembunyikan tidak memakan ruang peta (hanya tombol ^ yang mengambang)
     const top = $('hud-top').offsetHeight, bottom = bottomPanel.collapsed ? 0 : $('hud-bottom').offsetHeight;
     $('toasts').style.top = top + 10 + 'px'; // notifikasi tepat di bawah HUD atas

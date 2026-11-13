@@ -155,6 +155,8 @@ Panel bawah yang disembunyikan memberi peta ruang lebih; panel itu terbuka lagi 
 - Latar (laut + medan) digambar sekali ke kanvas seukuran layar dan hanya digambar ulang saat peta digeser, di-zoom, atau ukuran layar berubah; frame lain cukup menyalinnya 1:1. Sebelumnya gambar medan diperbesar ulang 60× per detik, dan itu pekerjaan menggambar termahal.
 - Resolusi kanvas maksimal 2× kepadatan layar (HP 2,75–3× → piksel turun ±50%).
 - Kota dan kereta di luar layar tidak digambar; titik penumpang di samping kota digambar dalam satu path per warna.
+- Ukuran kanvas hanya ditetapkan ulang kalau memang berubah. Sebelumnya setiap putus/panjangkan rel membuang dan mengalokasikan ulang seluruh buffer kanvas, sehingga putus-sambung berulang dengan cepat membuat peramban melambat.
+- Tombol chip jalur & stiker dibuat sekali lalu hanya diperbarui isinya (sebelumnya dibongkar dan dibuat ulang beserta event listener-nya setiap kali jalur berubah).
 - Naik kereta memakai satu kali saring antrean (bukan `splice` di dalam loop), jadi antrean panjang tidak memperlambat.
 - Uji di Satu Jawa dengan 114 kota (80 terhubung) dan ±23.000 penumpang menunggu, CPU diperlambat 4× tanpa GPU: ±6 → ±11 fps di layar 2×, 3,3 → ±10 fps di layar 3×. Memori tetap ±10 MB.
 
