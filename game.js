@@ -71,14 +71,20 @@
   // Begitu tersambung, kota langsung menjadi Dusun (1); setelah itu kapasitas naik 1,75× tiap level (dibulatkan).
   // Hanya ukuran lingkaran yang membedakan level di peta.
   const SIZE_NAME = ['Kampung', 'Dusun', 'Desa', 'Distrik', 'Kota Praja', 'Kotamadya', 'Kota Besar', 'Metropolitan', 'Megapolitan', 'Kota Global', 'Kapital'];
-  const SIZE_CAP = [0, 8, 14, 25, 43, 75, 131, 230, 402, 704, 1231];
+  // kapasitas: Kampung 0, Dusun 8, lalu ×1,75 per level (dibulatkan) → 8, 14, 25, 43, 75, 131, 230, 402, 704, 1231
+  const CAP_FIRST = 8, CAP_GROWTH = 1.75;
+  const SIZE_CAP = SIZE_NAME.map((_, lv) => (lv === 0 ? 0 : Math.round(CAP_FIRST * CAP_GROWTH ** (lv - 1))));
   const SIZE_R = [8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
   const MAX_LEVEL = SIZE_NAME.length - 1;
-  // total kunjungan untuk naik dari level i ke i+1 (selisih antarlevel = 5 × kapasitas level itu);
-  // Kampung → Dusun bukan lewat kunjungan, tapi saat kota tersambung jalur
-  const GROW_AT = [0, 40, 110, 235, 450, 825, 1480, 2630, 4640, 8160];
-  // jumlah maksimal kota per level dalam satu permainan: Kota Global paling banyak 3, Kapital hanya 1
+  // total kunjungan untuk naik dari level i ke i+1 (selisih antarlevel = 5 × kapasitas level itu)
+  // → 40, 110, 235, 450, 825, 1480, 2630, 4640, 8160. Kampung → Dusun bukan lewat kunjungan, tapi saat kota tersambung jalur
+  const VISITS_PER_CAP = 5;
+  const GROW_AT = [0];
+  for (let lv = 1; lv < MAX_LEVEL; lv++) GROW_AT.push((lv > 1 ? GROW_AT[lv - 1] : 0) + VISITS_PER_CAP * SIZE_CAP[lv]);
+  // jumlah maksimal kota per level dalam satu permainan: Kota Global paling banyak 5, Kapital hanya 1.
+  // Kalau penuh, statusnya bisa direbut kota yang kunjungannya ≥10% lebih banyak daripada pemegang terlemah.
   const LEVEL_LIMIT = { 9: 5, 10: 1 };
+  const TAKEOVER_MARGIN = 1.1;
   const levelFull = (lv) => LEVEL_LIMIT[lv] !== undefined && S.cities.filter((c) => c.size === lv).length >= LEVEL_LIMIT[lv];
   const NUMBER_FROM = 3;     // mulai Distrik, penumpang menunggu ditampilkan sebagai angka di dalam lingkaran
   // Kota Festival: tiap hari kelipatan 10 (kalau populasi negara > 1000) satu kota terhubung dipilih acak
@@ -496,6 +502,7 @@
    *   rasio ≤ 1 → 0;  rasio > 1 → 0,7 + 2 × (rasio − 1), maksimal 3.
    */
   function satisfactionDrain(c) {
+    if (c.graceUntil && S.t < c.graceUntil) return 0; // baru turun level karena statusnya direbut
     const ratio = fillRatio(c);
     return ratio > 1 ? Math.min(DRAIN_MAX, DRAIN_BASE + DRAIN_PER_RATIO * (ratio - 1)) : 0;
   }
@@ -788,10 +795,28 @@
   /** Kunjungan = penumpang yang turun di kota ini (sampai tujuan atau transit). Jadi syarat naik level. */
   function addVisit(city) {
     city.visits++;
-    if (city.size >= 1 && city.size < MAX_LEVEL && city.visits >= GROW_AT[city.size] && !levelFull(city.size + 1)) {
-      city.size++;
-      toast(`${city.name} berkembang menjadi ${SIZE_NAME[city.size].toLowerCase()}!`, 'good');
+    if (city.size < 1 || city.size >= MAX_LEVEL || city.visits < GROW_AT[city.size]) return;
+    const next = city.size + 1;
+    if (!levelFull(next)) {
+      city.size = next;
+      toast(`${city.name} berkembang menjadi ${SIZE_NAME[next].toLowerCase()}!`, 'good');
+      return;
     }
+    // kuota penuh (Kota Global / Kapital): rebut dari pemegang dengan kunjungan paling sedikit,
+    // kalau kunjungan kota ini ≥10% lebih banyak (supaya dua kota yang setara tidak bertukar bolak-balik)
+    const holder = weakestHolder(next);
+    if (holder && city.visits >= holder.visits * TAKEOVER_MARGIN) {
+      holder.size = next - 1;
+      holder.graceUntil = S.t + DAY_LEN; // kapasitasnya mengecil: 1 hari tidak menurunkan kepuasan
+      city.size = next;
+      toast(`${city.name} merebut status ${SIZE_NAME[next]} dari ${holder.name}!`, 'good');
+    }
+  }
+  /** Kota berlevel `lv` dengan kunjungan paling sedikit (calon yang statusnya bisa direbut). */
+  function weakestHolder(lv) {
+    let w = null;
+    for (const c of S.cities) if (c.size === lv && (!w || c.visits < w.visits)) w = c;
+    return w;
   }
 
   function deliver(p, city) {
@@ -2089,7 +2114,9 @@
     // (kunjungan/syarat level berikutnya); Kampung belum bisa naik lewat kunjungan, Kapital sudah tertinggi
     // kalau kuota level berikutnya sudah habis (5 Kota Global / 1 Kapital), tulis "kuota penuh"
     const visits = c.size === 0 ? 'belum terhubung' : c.size >= MAX_LEVEL ? `${c.visits}`
-      : `${c.visits}/${GROW_AT[c.size]}` + (levelFull(c.size + 1) ? ` · ${SIZE_NAME[c.size + 1]} sudah ${LEVEL_LIMIT[c.size + 1]}` : '');
+      : `${c.visits}/${GROW_AT[c.size]}` + (levelFull(c.size + 1)
+        ? ` · ${SIZE_NAME[c.size + 1]} sudah ${LEVEL_LIMIT[c.size + 1]}; rebut dari ${weakestHolder(c.size + 1).name} di ${Math.ceil(weakestHolder(c.size + 1).visits * TAKEOVER_MARGIN)}`
+        : '');
     const appeal = crowdFactor(c);
     // Contoh:
     //   Padang: II Desa (63/120)
