@@ -152,6 +152,7 @@ Panel bawah yang disembunyikan memberi peta ruang lebih; panel itu terbuka lagi 
 
 ## Performa
 
+- **Sprite cache**: lingkaran stasiun, titik penumpang, angka antrean, nama kota, kereta (beserta penumpangnya), dan ikon landmark digambar sekali ke kanvas kecil, lalu setiap frame cukup ditempel (`drawImage`). Ukurannya dibulatkan ke kelipatan 10% skala supaya cache tetap terpakai saat zoom. Di jalur GPU, menggambar ratusan lingkaran sebagai path setiap frame adalah biaya terbesar: dengan 80+ kota, emulasi GPU naik dari ±12 ke ±38 fps. Setiap jalur juga digambar sebagai satu path, bukan satu path per ruas.
 - Latar (laut + medan) digambar sekali ke kanvas seukuran layar dan hanya digambar ulang saat peta digeser, di-zoom, atau ukuran layar berubah; frame lain cukup menyalinnya 1:1. Sebelumnya gambar medan diperbesar ulang 60× per detik, dan itu pekerjaan menggambar termahal.
 - Resolusi kanvas maksimal 2× kepadatan layar (HP 2,75–3× → piksel turun ±50%).
 - Kota dan kereta di luar layar tidak digambar; titik penumpang di samping kota digambar dalam satu path per warna.

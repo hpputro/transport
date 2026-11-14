@@ -1496,7 +1496,16 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = `${LANDMARK_PX * UI}px ${EMOJI_FONT}`;
-    for (const l of S.landmarks) ctx.fillText(LANDMARKS[l.i][0], l.x, l.y);
+    for (const l of S.landmarks) {
+      if (!onScreen(l)) continue;
+      ctx.save(); ctx.translate(l.x, l.y); ctx.scale(UI, UI);
+      const sz = LANDMARK_PX * 1.4;
+      blit(sprite(`lm|${l.i}`, sz, sz, sz / 2, sz / 2, (g) => {
+        g.font = `${LANDMARK_PX}px ${EMOJI_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(LANDMARKS[l.i][0], 0, 0);
+      }), 0, 0);
+      ctx.restore();
+    }
     // pratinjau di bawah kursor saat memilih tempat (mouse saja; di layar sentuh langsung ketuk)
     if (S.placing && mouse.inside && !mouse.touch) {
       const li = nextLandmark();
@@ -2190,16 +2199,17 @@
 
   function draw(now) {
     drawBackground();
+    updateSpriteScale();
     const k = view.scale * view.dpr;
     ctx.setTransform(k, 0, 0, k, view.ox * view.dpr, view.oy * view.dpr);
-
-    drawLines();
-    drawLandmarks();
-    drawPreview();
     // bagian dunia yang terlihat (+ tepi untuk lingkaran, titik penumpang & nama); yang di luarnya tidak digambar
     const m = 160 * UI;
     vis.x0 = -view.ox / view.scale - m; vis.y0 = -view.oy / view.scale - m;
     vis.x1 = (window.innerWidth - view.ox) / view.scale + m; vis.y1 = (window.innerHeight - view.oy) / view.scale + m;
+
+    drawLines();
+    drawLandmarks();
+    drawPreview();
     if (S.jawa) cullLabels();
     for (const c of S.cities) if (onScreen(c)) drawCity(c, now);
     for (const tr of S.trains) drawTrain(tr);
@@ -2239,24 +2249,65 @@
     }
   }
 
+  // ---- sprite: bentuk yang digambar berulang (lingkaran stasiun, titik penumpang, angka, nama kota, kereta, ikon)
+  // dibuat sekali ke kanvas kecil, lalu setiap frame cukup ditempel dengan drawImage. Di GPU, menggambar ratusan
+  // lingkaran/teks sebagai path setiap frame jauh lebih mahal daripada menempel gambar jadi.
+  const sprites = new Map();
+  let spriteQ = 1; // piksel layar per satuan lokal (sudah termasuk UI), dibulatkan ke kelipatan 10% supaya cache awet saat zoom
+  function updateSpriteScale() {
+    const px = view.scale * view.dpr * UI;
+    spriteQ = Math.pow(1.1, Math.round(Math.log(px) / Math.log(1.1)));
+  }
+  /** Ambil (atau buat sekali) sprite berukuran w×h satuan lokal; draw(g) menggambar relatif titik jangkar (ax, ay). */
+  function sprite(key, w, h, ax, ay, draw) {
+    const k = key + '@' + spriteQ.toFixed(4);
+    let s = sprites.get(k);
+    if (!s) {
+      if (sprites.size > 1500) sprites.clear(); // batas memori: angka antrean terus berganti
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.ceil(w * spriteQ));
+      cv.height = Math.max(1, Math.ceil(h * spriteQ));
+      const g = cv.getContext('2d');
+      g.scale(spriteQ, spriteQ);
+      g.translate(ax, ay);
+      draw(g);
+      s = { cv, ax, ay, w: cv.width / spriteQ, h: cv.height / spriteQ };
+      sprites.set(k, s);
+    }
+    return s;
+  }
+  /** Tempel sprite dengan titik jangkarnya di (x, y), dalam koordinat lokal kanvas saat ini. */
+  const blit = (s, x, y) => ctx.drawImage(s.cv, x - s.ax, y - s.ay, s.w, s.h);
+  const circleSprite = (r, fill, stroke, lw) => sprite(`c|${r}|${fill}|${stroke}|${lw}`, 2 * r + lw + 4, 2 * r + lw + 4, r + lw / 2 + 2, r + lw / 2 + 2, (g) => {
+    g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2);
+    if (fill) { g.fillStyle = fill; g.fill(); }
+    if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.stroke(); }
+  });
+
   function drawLines() {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    for (const L of S.lines) {
-      const sel = S.selected === L;
+    // satu path per jalur (bukan satu per ruas); ruas tetap terpisah (moveTo) karena geser sejajarnya bisa beda
+    const path = (L) => {
+      ctx.beginPath();
       for (let k = 0; k + 1 < L.stations.length; k++) {
         const a = L.stations[k], b = L.stations[k + 1];
         const [ox, oy] = segOffset(L.id, a, b);
         const A = S.cities[a], B = S.cities[b];
-        if (sel) {
-          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-          ctx.lineWidth = 14 * UI;
-          ctx.beginPath(); ctx.moveTo(A.x + ox, A.y + oy); ctx.lineTo(B.x + ox, B.y + oy); ctx.stroke();
-        }
-        ctx.strokeStyle = L.color;
-        ctx.lineWidth = 8 * UI;
-        ctx.beginPath(); ctx.moveTo(A.x + ox, A.y + oy); ctx.lineTo(B.x + ox, B.y + oy); ctx.stroke();
+        ctx.moveTo(A.x + ox, A.y + oy); ctx.lineTo(B.x + ox, B.y + oy);
       }
+    };
+    for (const L of S.lines) {
+      if (L.stations.length < 2) continue;
+      path(L);
+      if (S.selected === L) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 14 * UI;
+        ctx.stroke();
+      }
+      ctx.strokeStyle = L.color;
+      ctx.lineWidth = 8 * UI;
+      ctx.stroke();
     }
   }
 
@@ -2309,23 +2360,27 @@
     ctx.rotate(p.ang);
     ctx.scale(UI, UI);
     // gerbong level 5 (muat 21): penumpang bertumpuk 3 baris, kereta lebih lebar; level 1–4: 2 baris
-    const rows = tr.line.car >= MAX_CAR ? 3 : 2;
-    const len = 28 + (Math.min(tr.line.cap, CAR_CAP[MAX_CAR - 1]) - BASE_CAP) * 1.1;
+    const L = tr.line, rows = L.car >= MAX_CAR ? 3 : 2;
+    const len = 28 + (Math.min(L.cap, CAR_CAP[MAX_CAR - 1]) - BASE_CAP) * 1.1;
     const h = rows * 6.6 + 2.8, row0 = -((rows - 1) * 6.6) / 2;
-    ctx.fillStyle = tr.line.color;
-    ctx.strokeStyle = '#1f2433';
-    ctx.lineWidth = 1.5;
-    roundRect(-len / 2, -h / 2, len, h, 4); ctx.fill(); ctx.stroke();
-    // titik penumpang di dalam kereta
-    ctx.fillStyle = '#fff';
-    const n = tr.pax.length, cols = Math.ceil(tr.line.cap / rows);
-    const sp = (len - 6) / cols;
-    for (let k = 0; k < n; k++) {
-      const col = k % cols, row = Math.floor(k / cols);
-      ctx.beginPath();
-      ctx.arc(-len / 2 + 3 + sp * (col + 0.5), row0 + row * 6.6, 2.1, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    const n = tr.pax.length;
+    // satu sprite per (warna, gerbong, jumlah penumpang): badan kereta + titik penumpang
+    blit(sprite(`t|${L.color}|${L.car}|${L.cap}|${n}`, len + 4, h + 4, len / 2 + 2, h / 2 + 2, (g) => {
+      g.fillStyle = L.color; g.strokeStyle = '#1f2433'; g.lineWidth = 1.5;
+      const x = -len / 2, y = -h / 2, rr = 4;
+      g.beginPath();
+      g.moveTo(x + rr, y); g.arcTo(x + len, y, x + len, y + h, rr); g.arcTo(x + len, y + h, x, y + h, rr);
+      g.arcTo(x, y + h, x, y, rr); g.arcTo(x, y, x + len, y, rr); g.closePath();
+      g.fill(); g.stroke();
+      g.fillStyle = '#fff';
+      const cols = Math.ceil(L.cap / rows), sp = (len - 6) / cols;
+      g.beginPath();
+      for (let k = 0; k < n; k++) {
+        const cx = -len / 2 + 3 + sp * ((k % cols) + 0.5), cy = row0 + Math.floor(k / cols) * 6.6;
+        g.moveTo(cx + 2.1, cy); g.arc(cx, cy, 2.1, 0, Math.PI * 2);
+      }
+      g.fill();
+    }), 0, 0);
     ctx.restore();
   }
 
@@ -2365,10 +2420,7 @@
     // stasiun
     const L = S.selected;
     const onSel = L && L.stations.includes(c.id);
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = onSel ? L.color : '#1f2433';
-    ctx.lineWidth = onSel ? 4.5 : 3;
-    ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    blit(circleSprite(r, '#fff', onSel ? L.color : '#1f2433', onSel ? 4.5 : 3), X, Y);
     if (S.building && L && L.stations.length) {
       const end = S.buildEnd === 'head' ? L.stations[0] : L.stations[L.stations.length - 1];
       if (end === c.id) {
@@ -2383,55 +2435,45 @@
       // Distrik ke atas: jumlah penumpang menunggu sebagai angka di dalam lingkaran (merah kalau melebihi kapasitas)
       const n = c.wait.length, label = String(n);
       const fs = Math.min(r * 0.95, (2 * r - 6) / (label.length * 0.62));
-      ctx.font = `800 ${fs}px system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = n > cap ? '#d64045' : n ? '#1f2433' : '#a3aab8';
-      ctx.fillText(label, X, Y + 1);
-      ctx.textBaseline = 'alphabetic';
+      const col = n > cap ? '#d64045' : n ? '#1f2433' : '#a3aab8';
+      blit(sprite(`n|${label}|${fs.toFixed(2)}|${col}`, 2 * r, 2 * r, r, r, (g) => {
+        g.font = `800 ${fs}px system-ui, sans-serif`;
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = col;
+        g.fillText(label, 0, 1);
+      }), X, Y);
       // titik merah kecil di tepi lingkaran: ada penumpang yang tujuannya belum terjangkau
-      if (c.wait.some((p) => !isFinite(D(c.id, p.dest)))) {
-        ctx.fillStyle = '#e0565b';
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(X + r * 0.72, Y - r * 0.72, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      }
+      if (c.wait.some((p) => !isFinite(D(c.id, p.dest)))) blit(circleSprite(4, '#e0565b', '#fff', 1.5), X + r * 0.72, Y - r * 0.72);
     } else {
       // Kampung & Desa: satu titik per penumpang di samping lingkaran
-      // semua titik satu warna digambar dalam satu path (maks. 2 perintah fill per kota, bukan satu per titik)
       const shown = Math.min(c.wait.length, 24);
-      for (const routed of [true, false]) {
-        ctx.beginPath();
-        let any = false;
-        for (let k = 0; k < shown; k++) {
-          if (isFinite(D(c.id, c.wait[k].dest)) !== routed) continue;
-          const cx = X + r + 10 + (k % 6) * 8, cy = Y - r + 4 + Math.floor(k / 6) * 8;
-          ctx.moveTo(cx + 3, cy);
-          ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-          any = true;
-        }
-        if (any) { ctx.fillStyle = routed ? '#3a4256' : '#e0565b'; ctx.fill(); }
+      const dark = circleSprite(3, '#3a4256', null, 0), red = circleSprite(3, '#e0565b', null, 0);
+      for (let k = 0; k < shown; k++) {
+        blit(isFinite(D(c.id, c.wait[k].dest)) ? dark : red, X + r + 10 + (k % 6) * 8, Y - r + 4 + Math.floor(k / 6) * 8);
       }
       if (c.wait.length > 24) {
-        ctx.fillStyle = '#d64045';
-        ctx.font = '700 12px system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`+${c.wait.length - 24}`, X + r + 7, Y - r + 4 + 4 * 8 + 5);
+        const more = `+${c.wait.length - 24}`;
+        blit(sprite(`m|${more}`, 8 + more.length * 8, 16, 0, 12, (g) => {
+          g.fillStyle = '#d64045'; g.font = '700 12px system-ui, sans-serif'; g.textAlign = 'left';
+          g.fillText(more, 0, 0);
+        }), X + r + 7, Y - r + 4 + 4 * 8 + 5);
       }
     }
-    // nama kota (posisi label diatur per kota di geo.js supaya kota yang berdekatan tidak bertumpuk)
-    ctx.font = '600 16px system-ui, sans-serif';
-    let lx = X, ly = Y + r + 20;
-    ctx.textAlign = 'center';
+    // nama kota (posisi label diatur per kota di geo.js / otomatis di Satu Jawa supaya tidak bertumpuk)
+    let lx = X, ly = Y + r + 20, align = 'center';
     if (c.label === 'top') ly = Y - r - 9;
-    else if (c.label === 'left') { lx = X - r - 6; ly = Y + 6; ctx.textAlign = 'right'; }
-    else if (c.label === 'right') { lx = X + r + 6; ly = Y + 6; ctx.textAlign = 'left'; }
+    else if (c.label === 'left') { lx = X - r - 6; ly = Y + 6; align = 'right'; }
+    else if (c.label === 'right') { lx = X + r + 6; ly = Y + 6; align = 'left'; }
     // Satu Jawa: nama yang akan menimpa nama kota lain yang lebih penting tidak digambar (lihat cullLabels)
     if (!S.jawa || c.showLabel) {
-      ctx.lineWidth = 3.5;
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-      ctx.strokeText(c.name, lx, ly);
-      ctx.fillStyle = '#1f2433';
-      ctx.fillText(c.name, lx, ly);
+      if (c.labelW === undefined) { ctx.font = '600 16px system-ui, sans-serif'; c.labelW = ctx.measureText(c.name).width; }
+      const w = c.labelW + 10, ax = align === 'center' ? w / 2 : align === 'left' ? 5 : w - 5;
+      blit(sprite(`l|${c.name}|${align}`, w, 26, ax, 19, (g) => {
+        g.font = '600 16px system-ui, sans-serif'; g.textAlign = align;
+        g.lineWidth = 3.5; g.lineJoin = 'round'; g.strokeStyle = 'rgba(255,255,255,0.9)';
+        g.strokeText(c.name, 0, 0);
+        g.fillStyle = '#1f2433';
+        g.fillText(c.name, 0, 0);
+      }), lx, ly);
     }
     ctx.textAlign = 'center';
     // kota yang dipilih dari daftar kota: cincin biru berdenyut sebentar
