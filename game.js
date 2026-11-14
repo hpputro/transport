@@ -78,7 +78,7 @@
   // Kampung → Dusun bukan lewat kunjungan, tapi saat kota tersambung jalur
   const GROW_AT = [0, 40, 110, 235, 450, 825, 1480, 2630, 4640, 8160];
   // jumlah maksimal kota per level dalam satu permainan: Kota Global paling banyak 3, Kapital hanya 1
-  const LEVEL_LIMIT = { 9: 3, 10: 1 };
+  const LEVEL_LIMIT = { 9: 5, 10: 1 };
   const levelFull = (lv) => LEVEL_LIMIT[lv] !== undefined && S.cities.filter((c) => c.size === lv).length >= LEVEL_LIMIT[lv];
   const NUMBER_FROM = 3;     // mulai Distrik, penumpang menunggu ditampilkan sebagai angka di dalam lingkaran
   // Kota Festival: tiap hari kelipatan 10 (kalau populasi negara > 1000) satu kota terhubung dipilih acak
@@ -2087,7 +2087,7 @@
       .map(([id, n]) => `${S.cities[id].name} (${n})`).join(', ');
     const lines = S.lines.filter((l) => l.stations.includes(c.id)).map((l) => l.name).join(', ');
     // (kunjungan/syarat level berikutnya); Kampung belum bisa naik lewat kunjungan, Kapital sudah tertinggi
-    // kalau kuota level berikutnya sudah habis (3 Kota Global / 1 Kapital), tulis "kuota penuh"
+    // kalau kuota level berikutnya sudah habis (5 Kota Global / 1 Kapital), tulis "kuota penuh"
     const visits = c.size === 0 ? 'belum terhubung' : c.size >= MAX_LEVEL ? `${c.visits}`
       : `${c.visits}/${GROW_AT[c.size]}` + (levelFull(c.size + 1) ? ` · ${SIZE_NAME[c.size + 1]} sudah ${LEVEL_LIMIT[c.size + 1]}` : '');
     const appeal = crowdFactor(c);

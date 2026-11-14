@@ -108,11 +108,11 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
   | VI | Kota Besar | 131 | 825 kunjungan |
   | VII | Metropolitan | 230 | 1.480 kunjungan |
   | VIII | Megapolitan | 402 | 2.630 kunjungan |
-  | IX | Kota Global | 704 | 4.640 kunjungan · **maksimal 3 kota** |
+  | IX | Kota Global | 704 | 4.640 kunjungan · **maksimal 5 kota** |
   | X | Kapital | 1231 | 8.160 kunjungan · **hanya 1 kota** |
 
   - Kapasitas naik 1,75× tiap level (dibulatkan). Selisih kunjungan untuk naik satu level = 5 × kapasitas level saat itu (mis. Dusun 8 → 40 kunjungan, Desa 14 → 70 kunjungan lagi, jadi total 110), sehingga ikut naik ±1,75× per level.
-  - Kuota: kalau sudah ada 3 Kota Global, Megapolitan lain tetap Megapolitan walau kunjungannya cukup. Tooltip kotanya menulis "Kota Global sudah 3". Begitu salah satu Kota Global naik menjadi Kapital, kuotanya terbuka satu, dan Megapolitan yang kunjungannya sudah cukup naik pada kunjungan berikutnya. Kapital hanya boleh 1, jadi Kota Global lainnya berhenti di Kota Global.
+  - Kuota: kalau sudah ada 5 Kota Global, Megapolitan lain tetap Megapolitan walau kunjungannya cukup. Tooltip kotanya menulis "Kota Global sudah 5". Begitu salah satu Kota Global naik menjadi Kapital, kuotanya terbuka satu, dan Megapolitan yang kunjungannya sudah cukup naik pada kunjungan berikutnya. Kapital hanya boleh 1, jadi Kota Global lainnya berhenti di Kota Global.
   - Kampung tetap menghasilkan penumpang (60% dari laju normal). Kapasitasnya tercatat 0, tetapi untuk perhitungan kepuasan Kampung dianggap berkapasitas maksimal (kapasitas Kapital, 1231), jadi praktis tidak menurunkan kepuasan. Level tidak turun lagi kalau jalurnya kemudian dibongkar.
   - Kampung, Dusun, dan Desa: penumpang menunggu ditampilkan sebagai titik di samping kota.
   - Mulai Distrik: ditampilkan sebagai angka di dalam lingkaran (merah kalau melebihi kapasitas). Titik merah kecil di tepi lingkaran berarti ada penumpang yang tujuannya belum terjangkau.
