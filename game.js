@@ -53,7 +53,7 @@
   const TRAIN_COST = 400;
   const CAP_COST = 250;
   // muatan satu kereta per level gerbong (level 1 = bawaan, beli "+ Gerbong" untuk naik level)
-  const CAR_CAP = [0, 6, 10, 14, 18, 21];
+  const CAR_CAP = [0, 6, 10, 14, 18, 21, 24];
   const MAX_CAR = CAR_CAP.length - 1;
   const BASE_CAP = CAR_CAP[1];
   const KM_PER_TRAIN = 500; // jumlah kereta maksimal per jalur = panjang jalur (km) ÷ 500, minimal 1
@@ -1895,7 +1895,7 @@
         stations: L.stations.length,
         km: Math.round(lineKm(L)),
         trains: L.trains.length,
-        cars: L.car,  // level gerbong (1 bawaan … 5)
+        cars: L.car,  // level gerbong (1 bawaan … 6)
         occ: seats ? onboard / seats : -1,
       };
     }).sort((a, b) => lineSort.dir * LINE_CMP[lineSort.key](a, b) || a.L.id - b.L.id);
@@ -2359,9 +2359,9 @@
     ctx.translate(p.x, p.y);
     ctx.rotate(p.ang);
     ctx.scale(UI, UI);
-    // gerbong level 5 (muat 21): penumpang bertumpuk 3 baris, kereta lebih lebar; level 1–4: 2 baris
-    const L = tr.line, rows = L.car >= MAX_CAR ? 3 : 2;
-    const len = 28 + (Math.min(L.cap, CAR_CAP[MAX_CAR - 1]) - BASE_CAP) * 1.1;
+    // muat ≤18: 2 baris; muat 21 & 24 (gerbong level 5–6): bertumpuk 3 baris, level 6 sedikit lebih panjang
+    const L = tr.line, rows = L.cap > 18 ? 3 : 2;
+    const len = 28 + (Math.min(L.cap, 18) - BASE_CAP) * 1.1 + (L.cap > 21 ? 4 : 0);
     const h = rows * 6.6 + 2.8, row0 = -((rows - 1) * 6.6) / 2;
     const n = tr.pax.length;
     // satu sprite per (warna, gerbong, jumlah penumpang): badan kereta + titik penumpang
