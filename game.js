@@ -53,8 +53,8 @@
   const TRAIN_COST = 400;
   const CAP_COST = 250;
   // muatan satu kereta per level gerbong (level 1 = bawaan, beli "+ Gerbong" untuk naik level)
-  const CAR_CAP = [0, 6, 10, 14, 18, 21, 24];
-  const MAX_CAR = CAR_CAP.length - 1;
+  const CAR_CAP = [0, 6, 10, 14, 18, 21, 24, 27]; // level 7 (27) hanya untuk jalur yang melewati kota ber-🚉 Stasiun
+  const MAX_CAR = 6;
   const BASE_CAP = CAR_CAP[1];
   const KM_PER_TRAIN = 500; // jumlah kereta maksimal per jalur = panjang jalur (km) ÷ 500, minimal 1
   const KM_PER_TRAIN_JAWA = 100; // peta Satu Jawa ±4,9× lebih rapat, jadi 1 kereta per 100 km
@@ -87,11 +87,39 @@
   // Stiker landmark: hiasan peta, dipasang berurutan dari yang termurah. Harga landmark ke-n = $1.000 × 1,5^(n−1).
   const LANDMARKS = [
     ['🏠', 'Rumah'], ['🌳', 'Taman'], ['⛲', 'Air Mancur'], ['🏪', 'Pasar'], ['🏫', 'Sekolah'],
-    ['🚏', 'Halte'], ['🕌', 'Masjid'], ['🚨', 'Kantor Polisi'], ['🏥', 'Rumah Sakit'], ['🏛️', 'Istana Negara'],
+    ['🚏', 'Halte'], ['🚨', 'Kantor Polisi'], ['🕌', 'Masjid'], ['🏥', 'Rumah Sakit'], ['🏛️', 'Istana Negara'],
     ['🚉', 'Stasiun'], ['🏭', 'Perindustrian'], ['🏟️', 'Stadion'], ['🎓', 'Universitas'], ['⚓', 'Pelabuhan'],
     ['🏯', 'Kastil'], ['🏢', 'Perkantoran'], ['🗼', 'Menara'], ['🏕️', 'Perkemahan'], ['✈️', 'Bandara'],
   ];
   const LANDMARK_COST = 1000, LANDMARK_GROWTH = 1.5, LANDMARK_PX = 24; // ukuran ikon di peta (ikut zoom)
+  const LM = {
+    RUMAH: 0, TAMAN: 1, AIR: 2, PASAR: 3, SEKOLAH: 4, HALTE: 5, POLISI: 6, MASJID: 7, RS: 8, ISTANA: 9,
+    STASIUN: 10, INDUSTRI: 11, STADION: 12, UNIV: 13, PELABUHAN: 14, KASTIL: 15, KANTOR: 16, MENARA: 17, KEMAH: 18, BANDARA: 19,
+  };
+  // Efek tiap landmark. "Kota terdekat" = kota terdekat saat landmark dipasang (tetap, sampai landmark dihapus).
+  // Semua efek hanya berlaku selama landmarknya ada.
+  const LM_DESC = [
+    'Kota terdekat: selama belum punya rel, tidak memunculkan penumpang',
+    'Kota terdekat: penurunan kepuasan −20%',
+    'Kota terdekat: tiap penumpang tiba menambah kepuasan 0,8 (biasanya 0,6)',
+    'Kota terdekat: penumpang yang bertujuan ke sana membayar +$3',
+    'Kota terdekat: level +1',
+    'Kota terdekat: kereta berhenti 0,3 detik lebih singkat',
+    'Kota terdekat jadi titik mati: tidak memunculkan penumpang & tidak dituju',
+    'Kota terdekat: tidak menurunkan kepuasan',
+    'Se-negara: kepuasan 0% tidak membuat kalah',
+    'Kota terdekat menjadi Kapital (tambahan, di luar kuota)',
+    'Jalur yang melewati kota terdekat: gerbong maks +1 (level 7, muat 27)',
+    'Kota terdekat: laju penumpang +25%; tiap hari kas + jumlah penumpang menunggu di sana',
+    'Kota terdekat: hari pertandingan tiap 7 hari (dituju ×3, tarif ×2)',
+    'Se-negara: semua jalur otomatis kereta & gerbong maksimal',
+    'Kota terdekat: penumpang transit langsung terantar ke tujuannya',
+    'Kota terdekat: festival 2 hari setiap festival rutin selesai',
+    'Kota terdekat: tiap hari kas + populasinya',
+    'Jalur yang melewati kota terdekat: kereta maks ×2',
+    'Se-negara: efek Taman & Air Mancur aktif di semua kota yang punya landmark',
+    'Kota terdekat: tiap hari 20% penumpang menunggu langsung terantar',
+  ];
   const landmarkPrice = (i) => Math.round(LANDMARK_COST * LANDMARK_GROWTH ** i);
   const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   const FESTIVAL_EVERY = 10, FESTIVAL_DAYS = 3, FESTIVAL_MIN_POP = 1000;
@@ -464,7 +492,7 @@
       id: S.cities.length, name: def.name, region: def.region, label: def.label, x: def.x, y: def.y,
       kab: def.kab, major: def.major, color: def.color,
       // kota baru = Kampung (level 0) sampai tersambung jalur
-      size: 0, visits: 0, pop: 0, wait: [], acc: S.rng() * 0.6, born: S.t, overT: 0,
+      size: 0, base: 0, visits: 0, pop: 0, wait: [], acc: S.rng() * 0.6, born: S.t, overT: 0,
     };
     S.cities.push(city);
     recomputeNetwork();
@@ -496,8 +524,10 @@
    *   rasio ≤ 1 → 0;  rasio > 1 → 0,7 + 2 × (rasio − 1), maksimal 3.
    */
   function satisfactionDrain(c) {
+    if (lmAt(c, LM.MASJID) || jailed(c)) return 0; // 🕌 Masjid / 🚨 titik mati: tidak menurunkan kepuasan
     const ratio = fillRatio(c);
-    return ratio > 1 ? Math.min(DRAIN_MAX, DRAIN_BASE + DRAIN_PER_RATIO * (ratio - 1)) : 0;
+    const d = ratio > 1 ? Math.min(DRAIN_MAX, DRAIN_BASE + DRAIN_PER_RATIO * (ratio - 1)) : 0;
+    return tamanOn(c) ? d * 0.8 : d; // 🌳 Taman: −20%
   }
 
   const isFestival = (c) => !!S.festival && S.festival.id === c.id;
@@ -506,8 +536,16 @@
   /** Dipanggil saat hari berganti: akhiri festival yang sudah 3 hari, mulai yang baru di hari kelipatan 10. */
   function updateFestival() {
     if (S.festival && S.day >= S.festival.until) {
+      const wasCastle = S.festival.castle;
       toast(`Festival di ${S.cities[S.festival.id].name} selesai`, 'fest', 4000);
       S.festival = null;
+      // 🏯 Kastil: setelah festival rutin selesai, kota berkastil mengadakan festival 2 hari (bergantian)
+      const k = !wasCastle && S.landmarks.find((l) => l.i === LM.KASTIL);
+      if (k) {
+        S.festival = { id: k.city, from: S.day, until: S.day + 2, castle: true };
+        toast(`🏯 Festival kastil di ${S.cities[k.city].name}! Hari ${S.day}–${S.day + 1}`, 'fest', 6000);
+        return;
+      }
     }
     if (S.festival || S.day % FESTIVAL_EVERY !== 0 || S.population <= FESTIVAL_MIN_POP) return;
     // bergiliran: pilih acak di antara kota terhubung yang belum dapat giliran; kalau semua sudah, mulai putaran baru
@@ -538,10 +576,12 @@
       // festival menambah bonus jalur sebesar log10(populasi negara)
       const bonus = (sameLine.has(c.id) ? SAME_LINE_BONUS : 1) + (isFestival(c) ? festivalBonus() : 0);
       const size = Math.max(1, c.size);
-      const v = (size * crowdFactor(c) * bonus) / (1 + dist(c, city) / 500);
+      // 🚨 titik mati tidak pernah dituju; 🏟️ hari pertandingan: dituju ×3
+      const v = jailed(c) ? 0 : (size * crowdFactor(c) * bonus * (matchDay(c) ? 3 : 1)) / (1 + dist(c, city) / 500);
       tot += v;
       return v;
     });
+    if (tot <= 0) return;
     let r = S.rng() * tot, k = 0;
     while (k < w.length - 1 && r > w[k]) { r -= w[k]; k++; }
     city.wait.push({ dest: others[k].id, hops: 0 });
@@ -577,8 +617,9 @@
     S.connected = adj.map((s) => s.size > 0);
     // Kampung yang baru tersambung langsung menjadi Dusun (level tidak turun lagi kalau jalurnya dibongkar)
     for (const c of S.cities) {
-      if (c.size === 0 && S.connected[c.id]) {
-        c.size = 1;
+      if (c.base === 0 && S.connected[c.id]) {
+        c.base = 1;
+        syncLevel(c);
         toast(`${c.name} tersambung dan menjadi ${SIZE_NAME[1].toLowerCase()}!`, 'good');
       }
     }
@@ -616,7 +657,9 @@
   }
 
   // Harga naik 1,5× setiap kali membeli, dihitung per jalur.
-  const trainPrice = (L) => Math.round(TRAIN_COST * PRICE_GROWTH ** L.trains.length);
+  // kereta gratis dari 🎓 Universitas tidak dihitung dalam harga & uang kembali
+  const boughtTrains = (L) => L.trains.filter((t) => !t.free).length;
+  const trainPrice = (L) => Math.round(TRAIN_COST * PRICE_GROWTH ** boughtTrains(L));
   const capPrice = (L) => Math.round(CAP_COST * PRICE_GROWTH ** (L.car - 1));
 
   /** Panjang rel sebuah jalur dalam km (1° ≈ 111 km). */
@@ -628,7 +671,12 @@
 
   /** Jumlah kereta maksimal sebuah jalur: 1 kereta per 500 km rel (dibulatkan ke atas), minimal 1. */
   const kmPerTrain = () => (S && S.jawa ? KM_PER_TRAIN_JAWA : KM_PER_TRAIN);
-  const maxTrains = (L) => Math.max(1, Math.ceil(lineKm(L) / kmPerTrain()));
+  const lineHas = (L, k) => L.stations.some((id) => lmAt(S.cities[id], k));
+  // 🗼 Menara: jalur yang melewati kotanya boleh 2× kereta
+  const maxTrains = (L) => Math.max(1, Math.ceil(lineKm(L) / kmPerTrain())) * (lineHas(L, LM.MENARA) ? 2 : 1);
+  // 🚉 Stasiun: gerbong maks +1 (level 7); 🎓 Universitas: gerbong otomatis maks
+  const maxCar = (L) => MAX_CAR + (lineHas(L, LM.STASIUN) ? 1 : 0);
+  const effCar = (L) => (lmGlobal(LM.UNIV) ? maxCar(L) : Math.min(L.car, maxCar(L)));
 
   /**
    * Biaya perawatan harian:
@@ -649,22 +697,25 @@
     if (S.money < price) { toast(`Kas tidak cukup (butuh $${price})`, 'bad'); return; }
     S.money -= price;
     L.spent = (L.spent || 0) + price; // dicatat untuk pengembalian uang saat jalur dihapus
-    // muncul di kota pertama dalam urutan pembuatan (depo), berangkat ke arah kota kedua dalam urutan itu
+    spawnTrain(L, false);
+  }
+  /** Taruh kereta di depo: kota pertama dalam urutan pembuatan, berangkat ke arah kota kedua. free = dari Universitas. */
+  function spawnTrain(L, free) {
     const i = L.stations.indexOf(L.order[0]), j = L.stations.indexOf(L.order[1]);
-    const tr = { line: L, i, dir: Math.sign(j - i), prog: 0, state: 'dwell', dwellT: 0.6, pax: [] };
+    const tr = { line: L, i, dir: Math.sign(j - i) || 1, prog: 0, state: 'dwell', dwellT: 0.6, pax: [], free };
     L.trains.push(tr);
     S.trains.push(tr);
     serve(tr, L.stations[tr.i]);
   }
 
   function upgradeCap(L) {
-    if (L.car >= MAX_CAR) return;
+    if (L.car >= maxCar(L) || lmGlobal(LM.UNIV)) return;
     const price = capPrice(L);
     if (S.money < price) { toast(`Kas tidak cukup (butuh $${price})`, 'bad'); return; }
     S.money -= price;
     L.spent = (L.spent || 0) + price;
     L.car++;
-    L.cap = CAR_CAP[L.car];
+    L.cap = CAR_CAP[effCar(L)];
     toast(`Kereta jalur ${L.name} kini muat ${L.cap} penumpang`, 'good');
   }
 
@@ -717,7 +768,7 @@
   }
 
   /** Harga kereta yang terakhir dibeli di jalur ini (dasar uang kembali saat kereta dibongkar). */
-  const lastTrainPrice = (L) => Math.round(TRAIN_COST * PRICE_GROWTH ** Math.max(0, L.trains.length - 1));
+  const lastTrainPrice = (L) => Math.round(TRAIN_COST * PRICE_GROWTH ** Math.max(0, boughtTrains(L) - 1));
 
   /** Stasiun terdekat dari posisi kereta saat ini (stasiun asal, atau stasiun tujuan kalau sudah lewat separuh ruas). */
   function nearestStation(tr) {
@@ -731,10 +782,11 @@
    * Bongkar kereta yang terakhir dibeli: penumpangnya turun di stasiun terdekat dan menunggu kereta lain,
    * uang kembali 50% dari harga kereta itu. Mengembalikan jumlah uang yang kembali.
    */
-  function removeTrain(L) {
+  function removeTrain(L, which) {
     if (!L.trains.length) return 0;
-    const paid = lastTrainPrice(L);
-    const tr = L.trains.pop();
+    const tr = which || L.trains[L.trains.length - 1];
+    const paid = tr.free ? 0 : lastTrainPrice(L); // kereta gratis (Universitas) tidak mengembalikan uang
+    L.trains = L.trains.filter((t) => t !== tr);
     S.trains = S.trains.filter((t) => t !== tr);
     S.cities[nearestStation(tr)].wait.push(...tr.pax);
     L.spent = Math.max(0, (L.spent || 0) - paid);
@@ -767,7 +819,11 @@
     const keep = [];
     for (const p of tr.pax) {
       if (p.dest === ci) { deliver(p, city); moved++; }
-      else if (N < 0 || !(D(N, p.dest) < D(ci, p.dest))) { city.wait.push(p); addVisit(city); moved++; } // transit
+      else if (N < 0 || !(D(N, p.dest) < D(ci, p.dest))) { // transit
+        addVisit(city); moved++;
+        if (lmAt(city, LM.PELABUHAN)) teleport(p, ci); // ⚓ Pelabuhan: langsung terantar ke tujuannya
+        else city.wait.push(p);
+      }
       else keep.push(p);
     }
     tr.pax = keep;
@@ -788,19 +844,34 @@
   /** Kunjungan = penumpang yang turun di kota ini (sampai tujuan atau transit). Jadi syarat naik level. */
   function addVisit(city) {
     city.visits++;
-    if (city.size >= 1 && city.size < MAX_LEVEL && city.visits >= GROW_AT[city.size] && !levelFull(city.size + 1)) {
-      city.size++;
-      toast(`${city.name} berkembang menjadi ${SIZE_NAME[city.size].toLowerCase()}!`, 'good');
+    // level alami (base) naik dari kunjungan; level efektif (size) = base + efek landmark (Sekolah/Istana)
+    if (city.base >= 1 && city.base < MAX_LEVEL && city.visits >= GROW_AT[city.base] && !levelFull(city.base + 1)) {
+      const before = city.size;
+      city.base++;
+      syncLevel(city);
+      if (city.size !== before) toast(`${city.name} berkembang menjadi ${SIZE_NAME[city.size].toLowerCase()}!`, 'good');
     }
+  }
+  /** Level efektif = level alami, +1 selama ada 🏫 Sekolah, atau Kapital selama ada 🏛️ Istana Negara. */
+  function syncLevel(c) {
+    c.size = lmAt(c, LM.ISTANA) ? MAX_LEVEL : Math.min(MAX_LEVEL, c.base + (lmAt(c, LM.SEKOLAH) ? 1 : 0));
+  }
+
+  /** Langsung antar penumpang dari kota `fromId` ke tujuannya (⚓ Pelabuhan, ✈️ Bandara): tarif penuh sesuai rute. */
+  function teleport(p, fromId) {
+    const rest = D(fromId, p.dest);
+    p.hops += isFinite(rest) ? rest : 0;
+    deliver(p, S.cities[p.dest]);
   }
 
   function deliver(p, city) {
-    const fare = 10 + 5 * p.hops;
+    // 🏪 Pasar: +$3 untuk penumpang yang bertujuan ke sini; 🏟️ hari pertandingan: tarif ×2
+    const fare = (10 + 5 * p.hops + (lmAt(city, LM.PASAR) ? 3 : 0)) * (matchDay(city) ? 2 : 1);
     S.money += fare;
     S.earned += fare;
     S.population++;   // populasi negara = jumlah populasi semua kota
     city.pop++;       // populasi kota = penumpang yang diantar ke kota ini sebagai tujuan
-    S.satisfaction = Math.min(100, S.satisfaction + 0.6);
+    S.satisfaction = Math.min(100, S.satisfaction + (airOn(city) ? 0.8 : 0.6)); // ⛲ Air Mancur: 0,8
     addVisit(city);
     if (S.particles.length < 40) S.particles.push({ x: city.x, y: city.y - 18, text: `+$${fare}`, life: 1.2, color: '#1e7a3a' });
   }
@@ -852,7 +923,7 @@
       for (const p of tr.pax) p.hops++;
       serve(tr, st[tr.i]);
       tr.state = 'dwell';
-      tr.dwellT = DWELL;
+      tr.dwellT = lmAt(S.cities[st[tr.i]], LM.HALTE) ? DWELL - 0.3 : DWELL; // 🚏 Halte: 0,3 detik lebih singkat
       tr.holdT = 0;
     }
   }
@@ -891,8 +962,12 @@
       particles: [],
       festival: null,    // { id, from, until }: kota festival, berlangsung dari hari `from` sampai sebelum hari `until`
       festivalDone: [],  // kota yang sudah mendapat giliran festival pada putaran ini
-      landmarks: [],     // stiker landmark yang terpasang: { i (urutan di LANDMARKS), x, y }
+      landmarks: [],     // landmark terpasang: { i (indeks LANDMARKS), x, y, city (kota terdekat saat dipasang) }
+      lmQueue: LANDMARKS.map((_, i) => i), // antrean chip stiker; landmark yang dihapus masuk paling belakang
+      lmCity: new Map(), // id kota → Set indeks landmark yang mempengaruhinya
+      lmAll: new Set(),  // indeks landmark yang sedang terpasang
       placing: false,    // sedang memilih tempat untuk landmark berikutnya
+      challenge: false,  // mode tantangan setelah menang
     };
     // kota peta ini yang belum muncul (Peta Bebas: hanya namanya, posisinya diacak saat muncul)
     S.history = []; // populasi negara & kota per hari (untuk grafik)
@@ -928,7 +1003,10 @@
       updateFestival();
       const cost = upkeepCost();
       S.money -= cost.total;
-      toast(cost.total ? `Hari ${day} · perawatan -$${cost.total} (kereta $${cost.trains} + jalur $${cost.lines})` : `Hari ${day}`);
+      const income = dailyLandmarks(day);
+      S.money += income;
+      toast((cost.total ? `Hari ${day} · perawatan -$${cost.total} (kereta $${cost.trains} + jalur $${cost.lines})` : `Hari ${day}`) +
+        (income ? ` · landmark +$${income}` : ''));
     }
     if (S.cities.length < S.target) {
       // semua kota yang ada sudah tersambung → kota berikutnya datang lebih cepat
@@ -945,7 +1023,10 @@
     const mult = Math.min(DAY_MULT_MAX, 1 + DAY_GROWTH * (S.day - 1));
     for (const c of S.cities) {
       if (S.t - c.born > 6) {
-        const rate = (SPAWN_BASE + SPAWN_PER_LEVEL * c.size) * mult * (S.connected[c.id] ? 1 : 0.6);
+        let rate = (SPAWN_BASE + SPAWN_PER_LEVEL * c.size) * mult * (S.connected[c.id] ? 1 : 0.6);
+        // 🚨 titik mati & 🏠 Rumah (selama belum ada rel): tidak memunculkan penumpang; 🏭 Perindustrian: +25%
+        if (jailed(c) || (lmAt(c, LM.RUMAH) && !S.connected[c.id])) rate = 0;
+        else if (lmAt(c, LM.INDUSTRI)) rate *= 1.25;
         c.acc += rate * dt;
         while (c.acc >= 1) { c.acc -= 1; spawnPassenger(c); }
       }
@@ -969,7 +1050,10 @@
     }
     if (S.relaxed) S.satisfaction = 100;
     if (!S.won && S.cities.length >= S.target && S.largest === S.cities.length) win();
-    else if (S.satisfaction <= 0) gameOver();
+    else if (S.satisfaction <= 0) {
+      if (lmGlobal(LM.RS)) S.satisfaction = 0; // 🏥 Rumah Sakit: kepuasan 0% tidak membuat kalah
+      else gameOver();
+    }
   }
 
   /** Tampilkan panel hasil di bawah layar (peta tetap terlihat dan bisa digeser/zoom). */
@@ -1026,7 +1110,8 @@
         stats: [['Populasi', S.population], ['Rekor populasi Satu Jawa', best], ['Hari', S.day]],
         actions: [
           { label: 'Main lagi Satu Jawa', primary: true, fn: () => startMap(0, 'jawa') },
-          { label: 'Tetap di peta ini', fn: stayRelaxed },
+          { label: 'Tetap di peta ini (santai)', fn: stayRelaxed },
+          { label: 'Tetap di peta ini (tantangan)', fn: stayChallenge },
         ],
       });
       return;
@@ -1040,7 +1125,8 @@
         stats: [['Populasi negara', S.population], ['Rekor populasi Peta Bebas', best], ['Hari', S.day]],
         actions: [
           { label: 'Main lagi Peta Bebas (peta acak baru)', primary: true, fn: () => startMap(0, 'free') },
-          { label: 'Tetap di peta ini', fn: stayRelaxed },
+          { label: 'Tetap di peta ini (santai)', fn: stayRelaxed },
+          { label: 'Tetap di peta ini (tantangan)', fn: stayChallenge },
         ],
       });
       return;
@@ -1050,7 +1136,8 @@
     if (!last) saveNum('map', Math.max(loadNum('map'), S.level + 1));
     const actions = [];
     if (!last) actions.push({ label: mapButtonLabel(S.level + 1), primary: true, fn: () => startMap(S.level + 1) });
-    actions.push({ label: 'Tetap di peta ini', primary: last, fn: stayRelaxed });
+    actions.push({ label: 'Tetap di peta ini (santai)', primary: last, fn: stayRelaxed });
+    actions.push({ label: 'Tetap di peta ini (tantangan)', fn: stayChallenge });
     if (last) actions.push({ label: 'Main lagi dari Peta 1', fn: () => startMap(1) });
     showResult({
       title: last ? 'Nusantara tersambung! Semua peta tamat.' : `Peta ${S.level} (${levelTitle(S.level)}) selesai!`,
@@ -1059,6 +1146,15 @@
       stats: [['Populasi negara', S.population], [`Rekor populasi peta ${S.level}`, best], ['Hari', S.day]],
       actions,
     });
+  }
+
+  /** Lanjut setelah menang, tapi kepuasan tetap berlaku dan bisa kalah (🏥 Rumah Sakit = pengaman). */
+  function stayChallenge() {
+    S.winChoice = false;
+    S.challenge = true;
+    hideResult();
+    refreshUi();
+    toast('Mode tantangan: kepuasan tetap berlaku dan kamu bisa kalah. 🏥 Rumah Sakit membuat kepuasan 0% tidak kalah.', 'good', 6000);
   }
 
   function stayRelaxed() {
@@ -1451,17 +1547,68 @@
       const [icon, name] = LANDMARKS[li];
       setIf(s, 'className', 'chip sticker' + (S.placing ? ' sel' : ''));
       setIf(s, 'textContent', icon);
-      setIf(s, 'title', `${name} · $${landmarkPrice(li).toLocaleString('id-ID')} — klik, lalu klik di daratan untuk memasang. Klik dua kali landmark di peta untuk menghapusnya.`);
+      setIf(s, 'title', `${name} · $${landmarkPrice(li).toLocaleString('id-ID')} — ${LM_DESC[li]}. Klik, lalu klik di daratan untuk memasang (berlaku untuk kota terdekat). Klik dua kali landmark di peta untuk menghapusnya.`);
     }
   }
 
   // ---- stiker landmark ----
   let lmTap = null; // ketukan pertama pada landmark (untuk mendeteksi klik dua kali)
-  /** Landmark termurah yang belum terpasang, atau -1 kalau semuanya sudah. */
+  /** Landmark berikutnya di antrean chip, atau -1 kalau semuanya sudah terpasang. */
   function nextLandmark() {
-    for (let i = 0; i < LANDMARKS.length; i++) if (!S.landmarks.some((l) => l.i === i)) return i;
-    return -1;
+    return S.lmQueue.length ? S.lmQueue[0] : -1;
   }
+  // ---- efek landmark ----
+  const lmAt = (c, k) => { const set = S.lmCity.get(c.id); return !!set && set.has(k); };
+  const lmGlobal = (k) => S.lmAll.has(k);
+  const lmAny = (c) => S.lmCity.has(c.id);
+  // 🏕️ Perkemahan: efek Taman & Air Mancur berlaku di semua kota yang punya landmark
+  const tamanOn = (c) => lmAt(c, LM.TAMAN) || (lmGlobal(LM.KEMAH) && lmAny(c));
+  const airOn = (c) => lmAt(c, LM.AIR) || (lmGlobal(LM.KEMAH) && lmAny(c));
+  const jailed = (c) => lmAt(c, LM.POLISI);
+  const matchDay = (c) => lmAt(c, LM.STADION) && S.day % 7 === 0;
+  /** Susun ulang indeks landmark per kota, lalu terapkan efek yang mengubah level & jalur. */
+  function rebuildLandmarks() {
+    S.lmCity = new Map(); S.lmAll = new Set();
+    for (const l of S.landmarks) {
+      S.lmAll.add(l.i);
+      if (!S.lmCity.has(l.city)) S.lmCity.set(l.city, new Set());
+      S.lmCity.get(l.city).add(l.i);
+    }
+    for (const c of S.cities) syncLevel(c);
+    applyLines();
+  }
+  /**
+   * Terapkan efek landmark ke jalur: muatan (Stasiun/Universitas), kereta gratis (Universitas),
+   * dan bongkar kereta yang melebihi batas (mis. Menara dihapus). Dipanggil tiap kali UI/jalur berubah.
+   */
+  function applyLines() {
+    const univ = lmGlobal(LM.UNIV);
+    for (const L of S.lines) {
+      L.cap = CAR_CAP[effCar(L)];
+      if (L.stations.length < 2) continue;
+      if (univ) { while (L.trains.length < maxTrains(L)) spawnTrain(L, true); }
+      else for (const tr of L.trains.filter((t) => t.free)) removeTrain(L, tr);
+      const cut = dropExtraTrains(L);
+      if (cut.n) toast(`Jalur ${L.name}: ${cut.n} kereta dibongkar karena batasnya turun` + (cut.refund ? `, kembali $${cut.refund}` : ''));
+    }
+  }
+  /** Efek harian landmark (hari berganti): pendapatan, ✈️ Bandara, 🏟️ hari pertandingan. Mengembalikan pendapatan. */
+  function dailyLandmarks(day) {
+    let income = 0;
+    for (const l of S.landmarks) {
+      const c = S.cities[l.city];
+      if (l.i === LM.INDUSTRI) income += c.wait.length;
+      else if (l.i === LM.KANTOR) income += c.pop;
+      else if (l.i === LM.BANDARA && c.wait.length) {
+        for (const p of c.wait.splice(0, Math.ceil(c.wait.length * 0.2))) teleport(p, c.id);
+      } else if (l.i === LM.STADION && day % 7 === 0) {
+        toast(`🏟️ Hari pertandingan di ${c.name}: dituju ×3, tarif ×2`, 'fest', 5000);
+      }
+    }
+    return income;
+  }
+  /** Kota terdekat dari titik p. */
+  const nearestCity = (p) => S.cities.reduce((a, c) => (dist(c, p) < dist(a, p) ? c : a), S.cities[0]);
   /** Landmark terpasang di dekat titik p (radius mengikuti ukuran ikon, lebih lebar untuk jari). */
   function landmarkAt(p) {
     const r = Math.max(LANDMARK_PX * 0.6 * UI, screenPx(mouse.touch ? 26 : 14));
@@ -1479,20 +1626,35 @@
     if (cityAt(p)) { toast('Terlalu dekat dengan kota, pilih tempat lain', 'bad'); return; }
     if (S.money < price) { toast(`Kas tidak cukup untuk ${name} (butuh $${price.toLocaleString('id-ID')})`, 'bad'); cancelPlacing(); return; }
     S.money -= price;
-    S.landmarks.push({ i: li, x: p.x, y: p.y });
+    const c = nearestCity(p);
+    S.landmarks.push({ i: li, x: p.x, y: p.y, city: c.id });
+    S.lmQueue.shift();
     S.placing = false;
+    if (li === LM.POLISI) c.wait = []; // titik mati: antreannya bubar
+    rebuildLandmarks();
     S.particles.push({ x: p.x, y: p.y - 22, text: `-$${price.toLocaleString('id-ID')}`, life: 1.2, color: '#b3261e' });
-    toast(`${icon} ${name} terpasang`, 'good');
+    toast(`${icon} ${name} terpasang · ${LM_DESC[li].replace('Kota terdekat', c.name)}`, 'good', 5000);
     refreshUi();
   }
   function cancelPlacing() { S.placing = false; refreshUi(); }
   /** Hapus landmark (tanpa uang kembali); ikonnya kembali ke chip stiker. */
   function removeLandmark(lm) {
     S.landmarks = S.landmarks.filter((l) => l !== lm);
-    toast(`${LANDMARKS[lm.i][0]} ${LANDMARKS[lm.i][1]} dihapus, ikonnya kembali ke chip stiker`);
+    S.lmQueue.push(lm.i); // masuk antrean chip paling belakang (supaya bisa bergantian)
+    rebuildLandmarks();
+    toast(`${LANDMARKS[lm.i][0]} ${LANDMARKS[lm.i][1]} dihapus, efeknya hilang; ikonnya masuk antrean chip paling belakang`);
     refreshUi();
   }
   function drawLandmarks() {
+    // garis putus-putus tipis dari tiap landmark ke kota yang dipengaruhinya
+    ctx.setLineDash([6 * UI, 6 * UI]);
+    ctx.strokeStyle = 'rgba(31,36,51,0.4)';
+    ctx.lineWidth = 2 * UI;
+    ctx.beginPath();
+    for (const l of S.landmarks) { const c = S.cities[l.city]; ctx.moveTo(l.x, l.y); ctx.lineTo(c.x, c.y); }
+    if (S.placing && mouse.inside && !mouse.touch && S.cities.length) { const c = nearestCity(mouse); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(c.x, c.y); }
+    ctx.stroke();
+    ctx.setLineDash([]);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = `${LANDMARK_PX * UI}px ${EMOJI_FONT}`;
@@ -1540,16 +1702,20 @@
       : `Kereta baru muncul di ${depo}, berangkat ke arah ${next}`;
     $('b-extend').classList.toggle('active', S.building);
     const tp = trainPrice(L), cp = capPrice(L);
+    const univ = lmGlobal(LM.UNIV);
     $('b-train').textContent = L.trains.length >= maxT ? 'Kereta maks' : `+ Kereta ($${tp})`;
     $('b-train').disabled = L.trains.length >= maxT || S.money < tp;
-    $('b-untrain').textContent = L.trains.length ? `− Kereta (+$${Math.round(lastTrainPrice(L) * 0.5)})` : '− Kereta';
-    $('b-untrain').disabled = !L.trains.length;
+    $('b-untrain').textContent = L.trains.length && !univ ? `− Kereta (+$${Math.round(lastTrainPrice(L) * 0.5)})` : '− Kereta';
+    $('b-untrain').disabled = !L.trains.length || univ;
     $('b-untrain').title = L.trains.length
       ? 'Bongkar kereta yang terakhir dibeli: penumpangnya turun di stasiun terdekat, uang kembali 50% dari harganya'
       : 'Jalur ini belum punya kereta';
-    $('b-cap').textContent = L.car >= MAX_CAR ? 'Gerbong maks' : `+ Gerbong ($${cp})`;
-    $('b-cap').disabled = L.car >= MAX_CAR || S.money < cp;
-    $('b-cap').title = L.car >= MAX_CAR ? `Gerbong level ${MAX_CAR}: muat ${L.cap}` : `Gerbong level ${L.car + 1}: muat ${L.cap} → ${CAR_CAP[L.car + 1]} per kereta`;
+    const mc = maxCar(L), full = univ || L.car >= mc;
+    $('b-cap').textContent = full ? 'Gerbong maks' : `+ Gerbong ($${cp})`;
+    $('b-cap').disabled = full || S.money < cp;
+    $('b-cap').title = univ ? `🎓 Universitas: gerbong otomatis maks (muat ${L.cap})`
+      : full ? `Gerbong level ${effCar(L)}: muat ${L.cap}` : `Gerbong level ${L.car + 1}: muat ${L.cap} → ${CAR_CAP[L.car + 1]} per kereta`;
+    if (univ) { $('b-train').title = '🎓 Universitas: semua jalur otomatis kereta maksimal'; $('b-untrain').title = $('b-train').title; }
     const st = L.stations, n = st.length, canTrim = n > 2;
     const trimBtn = (id, label, city, cost) => {
       const b = $(id);
@@ -1567,7 +1733,7 @@
     const L = S.selected;
     const li = S.placing ? nextLandmark() : -1;
     if (li >= 0) {
-      h = `Pasang ${LANDMARKS[li][0]} ${LANDMARKS[li][1]} ($${landmarkPrice(li).toLocaleString('id-ID')}): klik di daratan (bukan laut/danau). Esc, klik kanan, atau klik chip stiker lagi untuk batal.`;
+      h = `Pasang ${LANDMARKS[li][0]} ${LANDMARKS[li][1]} ($${landmarkPrice(li).toLocaleString('id-ID')}) · ${LM_DESC[li]}. Klik di daratan (bukan laut/danau); garis menunjukkan kota terdekat. Esc / klik kanan untuk batal.`;
     } else if (S.building && L) {
       if (!L.stations.length) h = `Jalur ${L.name}: klik kota pertama.`;
       else h = `Jalur ${L.name}: klik kota berikutnya untuk memasang rel dari ujung ${S.buildEnd === 'head' ? 'awal' : 'akhir'}. Klik ujung lain untuk pindah arah. Klik area kosong atau Esc untuk selesai.`;
@@ -1582,6 +1748,7 @@
 
   function refreshUi() {
     pruneStubLines();
+    applyLines(); // efek landmark ke jalur (batas kereta/gerbong) mengikuti perubahan jalur
     // panel bawah otomatis terbuka saat jalur dipilih/dibangun, supaya tombol-tombolnya bisa dipakai
     if (bottomPanel.collapsed && (S.selected || S.building)) setBottomCollapsed(false);
     renderChips();
@@ -1895,7 +2062,7 @@
         stations: L.stations.length,
         km: Math.round(lineKm(L)),
         trains: L.trains.length,
-        cars: L.car,  // level gerbong (1 bawaan … 6)
+        cars: effCar(L),  // level gerbong (1 bawaan … 6, 7 dengan Stasiun)
         occ: seats ? onboard / seats : -1,
       };
     }).sort((a, b) => lineSort.dir * LINE_CMP[lineSort.key](a, b) || a.L.id - b.L.id);
@@ -2050,19 +2217,20 @@
       cityPanel.last = performance.now();
       if (cityPanel.mode === 'lines') renderLinePanel(); else renderCityPanel();
     }
-    const key = [S.level, S.mode, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.population, Math.round(S.satisfaction)].join('|');
+    const key = [S.level, S.mode, S.challenge, S.lmAll.size, S.largest, S.cities.length, S.target, S.relaxed, S.day, Math.round(S.money), S.population, Math.round(S.satisfaction)].join('|');
     if (key !== lastHud) {
       lastHud = key;
       const newest = regionName(GEO.LEVEL_REGIONS[S.level - 1]);
-      $('s-map').textContent = S.jawa ? `Satu Jawa${S.relaxed ? ' · santai' : ''}` : S.free
-        ? `Peta Bebas${S.relaxed ? ' · santai' : ''}`
-        : `Peta ${S.level} · ${S.level > 1 ? '+' : ''}${newest}${S.relaxed ? ' · santai' : ''}`;
+      const modeTag = S.relaxed ? ' · santai' : S.challenge ? ' · tantangan' : '';
+      $('s-map').textContent = S.jawa ? `Satu Jawa${modeTag}` : S.free
+        ? `Peta Bebas${modeTag}`
+        : `Peta ${S.level} · ${S.level > 1 ? '+' : ''}${newest}${modeTag}`;
       $('s-map').title = S.jawa ? `${S.target} kota & ibu kota kabupaten di Pulau Jawa` : S.free ? 'Pulau acak dengan 38 ibu kota provinsi' : levelRegions(S.level).map(regionName).join(' + ');
       // jumlah kota dalam jaringan terbesar / target kota peta ini
       $('s-conn').textContent = `${S.largest}/${S.target} kota`;
       $('s-conn').title = `Kota terhubung dalam satu jaringan. ${S.cities.length} dari ${S.target} kota sudah muncul.`;
-      $('s-sat-lbl').textContent = S.relaxed ? 'Kepuasan (aman)' : 'Kepuasan';
-      $('b-next').hidden = !(S.relaxed && !S.free && !S.jawa && S.level < LAST_MAP);
+      $('s-sat-lbl').textContent = S.relaxed ? 'Kepuasan (aman)' : lmGlobal(LM.RS) ? 'Kepuasan (🏥 aman)' : 'Kepuasan';
+      $('b-next').hidden = !((S.relaxed || S.challenge) && !S.free && !S.jawa && S.level < LAST_MAP);
       $('b-next').textContent = mapButtonLabel(Math.min(S.level + 1, LAST_MAP));
       $('s-day').textContent = S.day;
       const m = $('s-money');
@@ -2078,7 +2246,15 @@
     const tip = $('tooltip');
     const tipOn = mouse.inside && S.started && !(mouse.touch && !(performance.now() < mouse.tipUntil));
     const c = tipOn ? cityAt(mouse) : null;
-    if (!c) { tip.hidden = true; return; }
+    if (!c) {
+      const lm = tipOn && !S.placing && landmarkAt(mouse);
+      if (!lm) { tip.hidden = true; return; }
+      tip.textContent = `${LANDMARKS[lm.i][0]} ${LANDMARKS[lm.i][1]} → ${S.cities[lm.city].name}\n${LM_DESC[lm.i]}\nKlik dua kali untuk menghapus`;
+      tip.hidden = false;
+      tip.style.left = Math.min(mouse.cx + 14, window.innerWidth - tip.offsetWidth - 8) + 'px';
+      tip.style.top = Math.min(mouse.cy + 14, window.innerHeight - tip.offsetHeight - 8) + 'px';
+      return;
+    }
     const cap = SIZE_CAP[c.size];
     const noRoute = c.wait.filter((p) => !isFinite(D(c.id, p.dest))).length;
     const counts = {};
@@ -2088,8 +2264,10 @@
     const lines = S.lines.filter((l) => l.stations.includes(c.id)).map((l) => l.name).join(', ');
     // (kunjungan/syarat level berikutnya); Kampung belum bisa naik lewat kunjungan, Kapital sudah tertinggi
     // kalau kuota level berikutnya sudah habis (5 Kota Global / 1 Kapital), tulis "kuota penuh"
-    const visits = c.size === 0 ? 'belum terhubung' : c.size >= MAX_LEVEL ? `${c.visits}`
-      : `${c.visits}/${GROW_AT[c.size]}` + (levelFull(c.size + 1) ? ` · ${SIZE_NAME[c.size + 1]} sudah ${LEVEL_LIMIT[c.size + 1]}` : '');
+    // kenaikan alami dihitung dari level alami (base); level dari 🏫 Sekolah / 🏛️ Istana ditandai terpisah
+    const visits = (c.base === 0 ? 'belum terhubung' : c.base >= MAX_LEVEL ? `${c.visits}`
+      : `${c.visits}/${GROW_AT[c.base]}` + (levelFull(c.base + 1) ? ` · ${SIZE_NAME[c.base + 1]} sudah ${LEVEL_LIMIT[c.base + 1]}` : '')) +
+      (c.size !== c.base ? ` · level alami ${LEVEL_CODE[c.base]}` : '');
     const appeal = crowdFactor(c);
     // Contoh:
     //   Padang: II Desa (63/120)
@@ -2105,7 +2283,9 @@
       (noRoute ? `\nBelum ada rute: ${noRoute}` : '') +
       (appeal < 1 ? `\nTerlalu padat: minat dikunjungi ${Math.round(appeal * 100)}%` : '') +
       `\nJalur: ${lines || 'belum terhubung'}` +
-      (isFestival(c) ? `\n🎉 Festival sampai hari ${S.festival.until - 1}: bonus jalur +${festivalBonus().toFixed(2)}` : '');
+      (isFestival(c) ? `\n🎉 Festival sampai hari ${S.festival.until - 1}: bonus jalur +${festivalBonus().toFixed(2)}` : '') +
+      S.landmarks.filter((l) => l.city === c.id).map((l) => `\n${LANDMARKS[l.i][0]} ${LANDMARKS[l.i][1]}: ${LM_DESC[l.i].replace('Kota terdekat: ', '')}`).join('') +
+      (lmGlobal(LM.KEMAH) && lmAny(c) ? '\n🏕️ Perkemahan: efek Taman & Air Mancur aktif' : '');
     tip.hidden = false;
     const tx = Math.min(mouse.cx + 14, window.innerWidth - tip.offsetWidth - 8);
     const ty = Math.min(mouse.cy + 14, window.innerHeight - tip.offsetHeight - 8);
@@ -2361,7 +2541,7 @@
     ctx.scale(UI, UI);
     // muat ≤18: 2 baris; muat 21 & 24 (gerbong level 5–6): bertumpuk 3 baris, level 6 sedikit lebih panjang
     const L = tr.line, rows = L.cap > 18 ? 3 : 2;
-    const len = 28 + (Math.min(L.cap, 18) - BASE_CAP) * 1.1 + (L.cap > 21 ? 4 : 0);
+    const len = 28 + (Math.min(L.cap, 18) - BASE_CAP) * 1.1 + (L.cap > 24 ? 8 : L.cap > 21 ? 4 : 0);
     const h = rows * 6.6 + 2.8, row0 = -((rows - 1) * 6.6) / 2;
     const n = tr.pax.length;
     // satu sprite per (warna, gerbong, jumlah penumpang): badan kereta + titik penumpang
@@ -2420,7 +2600,8 @@
     // stasiun
     const L = S.selected;
     const onSel = L && L.stations.includes(c.id);
-    blit(circleSprite(r, '#fff', onSel ? L.color : '#1f2433', onSel ? 4.5 : 3), X, Y);
+    if (jailed(c)) blit(circleSprite(6, '#c3c7cf', onSel ? L.color : '#5b6270', 2), X, Y); // 🚨 titik mati
+    else blit(circleSprite(r, '#fff', onSel ? L.color : '#1f2433', onSel ? 4.5 : 3), X, Y);
     if (S.building && L && L.stations.length) {
       const end = S.buildEnd === 'head' ? L.stations[0] : L.stations[L.stations.length - 1];
       if (end === c.id) {
@@ -2430,8 +2611,10 @@
         ctx.setLineDash([]);
       }
     }
-    // penumpang menunggu
-    if (c.size >= NUMBER_FROM) {
+    // penumpang menunggu (titik mati 🚨 tidak punya antrean)
+    if (jailed(c)) {
+      // tidak menggambar antrean
+    } else if (c.size >= NUMBER_FROM) {
       // Distrik ke atas: jumlah penumpang menunggu sebagai angka di dalam lingkaran (merah kalau melebihi kapasitas)
       const n = c.wait.length, label = String(n);
       const fs = Math.min(r * 0.95, (2 * r - 6) / (label.length * 0.62));
@@ -2542,5 +2725,5 @@
   requestAnimationFrame(frame);
 
   // dipakai untuk pengujian otomatis
-  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit, DAY_LEN, terrainAt, JAWA_CITIES, newLine, addTrain, upgradeCap, recomputeNetwork };
+  window.__lintasKota = { get state() { return S; }, view, toast, segCost, ALL_CITIES, spawnPassenger, cityAt, lineAt, toWorld, mouse, newGame, spawnCity, satisfactionDrain, upkeepCost, lineKm, openChart, closeChart, CITY_COLOR, addVisit, DAY_LEN, terrainAt, JAWA_CITIES, newLine, addTrain, upgradeCap, recomputeNetwork, placeLandmark, removeLandmark, LM, update: (dt) => update(dt), maxTrains, deliver };
 })();

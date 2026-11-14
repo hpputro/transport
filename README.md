@@ -60,7 +60,9 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
 - **Skor** tiap peta adalah **populasi negara**, yaitu jumlah populasi semua kota (lihat "Status kota" di bawah). Rekornya disimpan per peta.
 - **Setelah menang** kamu bisa memilih:
   - lanjut ke peta berikutnya, atau
-  - tetap di peta ini dalam mode santai: kepuasan selalu penuh dan tidak bisa kalah. Tombol "Peta berikutnya" tetap tersedia di bagian atas.
+  - tetap di peta ini dalam **mode santai**: kepuasan selalu penuh dan tidak bisa kalah, atau
+  - tetap di peta ini dalam **mode tantangan**: kepuasan tetap naik-turun dan bisa kalah. 🏥 Rumah Sakit menjadi pengaman (kepuasan 0% tidak kalah), dan bisa dihapus lagi kalau sudah yakin.
+  - Di kedua mode, tombol "Peta berikutnya" tetap tersedia di bagian atas.
 - **Progres peta** tersimpan di browser. Di layar pembuka ada tombol "Indonesia N: …" untuk melanjutkan.
 
 - **Bangun jalur**: klik sebuah kota, lalu klik kota-kota berikutnya. Setiap ruas rel ada biayanya, tergantung jarak dan medan:
@@ -127,10 +129,36 @@ Untuk aturan dengan pengecualian (Jawa → Sumatra), urutannya diundi 50-50 di a
 - **Daftar kota** (tombol "☰ Kota" di kanan atas): tabel `No | Lv | Kota | Jalur | Tunggu | Okupansi | Pop`. Kolom Jalur berisi bulatan berwarna jalur (berbingkai hitam) untuk tiap jalur yang melewati kota itu, dan diurutkan menurut jumlah jalur. Urutan bawaannya: populasi terbesar, lalu level tertinggi, lalu okupansi (menunggu ÷ kapasitas) terbesar. Urutan bawaan ini juga dipakai sebagai pemecah seri saat mengurutkan kolom lain. Okupansi Kampung ditulis "–" karena kapasitasnya 0, dan saat okupansi diurutkan turun Kampung selalu di atas. Level ditulis dengan kode pada tabel di atas (0 Kampung, I Dusun … X Kapital). Klik judul kolom untuk mengurutkan berdasarkan kolom itu (klik lagi untuk membalik arah, ▲ naik / ▼ turun); klik "No" untuk kembali ke urutan bawaan. Baris kuning = lebih dari 50% kapasitas, merah = melebihi kapasitas. Klik baris untuk menggeser peta ke kota itu. Di layar lebar panel ini terbuka di samping peta; di HP panel tertutup sampai tombolnya diketuk.
 - **Daftar jalur** (tombol "☰ Jalur" di sebelah tombol Kota; panel yang sama, berganti isi): tabel `No | Jalur | Kota | Jarak | Kereta | Gerbong | Okupansi`. Kota = jumlah stasiun, Jarak = panjang rel (km, 1° ≈ 111 km), Gerbong = level gerbong (1 bawaan … 6), Okupansi = persentase penumpang di dalam semua kereta jalur itu dibanding total kapasitasnya saat ini. Klik judul kolom untuk mengurutkan (klik lagi untuk membalik arah; "No" = urutan warna jalur). Klik baris untuk memilih jalur. Klik tombol yang sedang aktif untuk menutup panel.
 - **Grafik** (tombol "📈 Grafik"; di HP hanya ikon 📈): grafik garis *Populasi kota* untuk **10 kota terbesar** yang menutupi peta (HUD atas tetap terlihat). Kota di luar 10 besar tidak digambar. Di bawahnya ada tabel `Kota | Level | Populasi | +5 hari` (selisih dibanding 5 hari lalu). Warna garis menurut pulau: merah Sumatra, hijau Jawa, biru Sulawesi, ungu Papua, kuning Kalimantan, hitam/abu Maluku & Nusa Tenggara. Tiap kota punya gradasi tetap dari pulaunya; kota yang bersebelahan di daftar ibu kota diberi gradasi gelap–terang yang berselang supaya mudah dibedakan. Warna tidak berubah walau peringkat kota naik-turun, dan Peta Bebas memakai warna yang sama. Permainan **tidak dijeda**: grafik dan tabel diperbarui live 4× per detik, dengan titik paling kanan = saat ini; titik lain dicatat tiap pergantian hari. Arahkan kursor / ketuk grafik untuk melihat angka tiap hari. Kecepatan dan jeda (tombol atau `Spasi`, `1`–`5`) tetap bisa dipakai. Tutup dengan ✕ Tutup, tombol 📈 lagi, atau `Esc`; grafik juga tertutup sendiri saat menang/kalah.
-- **Stiker landmark** (chip putih berikon setelah chip jalur terakhir): hiasan peta, tidak memengaruhi permainan. Chip menampilkan landmark berikutnya. Klik chip, lalu klik di peta untuk memasangnya. Daratan, pegunungan, dan negara tetangga boleh; laut, danau, dan tepat di atas kota tidak boleh. Di desktop, ikonnya ikut kursor sebagai pratinjau (bertanda silang merah kalau tempatnya tidak boleh). Batal dengan `Esc`, klik kanan, atau klik chip lagi.
-  - 20 landmark dipasang berurutan, harga landmark ke-n = $1.000 × 1,5^(n−1): 🏠 Rumah $1.000 · 🌳 Taman $1.500 · ⛲ Air Mancur $2.250 · 🏪 Pasar $3.375 · 🏫 Sekolah $5.063 · 🚏 Halte $7.594 · 🕌 Masjid $11.391 · 🚨 Kantor Polisi $17.086 · 🏥 Rumah Sakit $25.629 · 🏛️ Istana Negara $38.443 · 🚉 Stasiun $57.665 · 🏭 Perindustrian $86.498 · 🏟️ Stadion $129.746 · 🎓 Universitas $194.620 · ⚓ Pelabuhan $291.929 · 🏯 Kastil $437.894 · 🏢 Perkantoran $656.841 · 🗼 Menara $985.261 · 🏕️ Perkemahan $1.477.892 · ✈️ Bandara $2.216.838.
-  - Setelah ke-20 landmark terpasang, chip menjadi ✓ (habis).
-  - **Hapus**: klik dua kali (atau ketuk dua kali) landmark di peta. Uang tidak kembali. Ikonnya muncul lagi di chip, karena chip selalu menampilkan landmark termurah yang belum terpasang, dan memasangnya lagi dikenai harga landmark itu.
+- **Landmark** (chip putih berikon setelah chip jalur terakhir): chip menampilkan landmark berikutnya di antrean. Klik chip, lalu klik di peta untuk memasangnya. Daratan, pegunungan, dan negara tetangga boleh; laut, danau, dan tepat di atas kota tidak boleh. Di desktop, ikonnya ikut kursor sebagai pratinjau, dengan garis putus-putus ke kota terdekat (bertanda silang merah kalau tempatnya tidak boleh). Batal dengan `Esc`, klik kanan, atau klik chip lagi.
+  - **Kota terdekat** dipilih saat landmark dipasang dan tidak berubah sampai landmark dihapus. Garis putus-putus tipis menghubungkan landmark ke kotanya. Semua efek **hanya berlaku selama landmarknya ada**.
+  - Antrean awal mengikuti urutan di bawah. Harga landmark ke-n = $1.000 × 1,5^(n−1), dan tetap melekat pada landmark itu.
+
+  | # | Landmark | Harga | Efek |
+  |---|---|---|---|
+  | 1 | 🏠 Rumah | $1.000 | Kota terdekat: selama belum punya rel, tidak memunculkan penumpang |
+  | 2 | 🌳 Taman | $1.500 | Kota terdekat: penurunan kepuasan −20% |
+  | 3 | ⛲ Air Mancur | $2.250 | Kota terdekat: tiap penumpang yang tiba menambah kepuasan 0,8 (biasanya 0,6) |
+  | 4 | 🏪 Pasar | $3.375 | Kota terdekat: penumpang yang bertujuan ke sana membayar +$3 |
+  | 5 | 🏫 Sekolah | $5.063 | Kota terdekat: level +1. Kenaikan alami tetap dihitung dari level aslinya (tooltip: "level alami …") |
+  | 6 | 🚏 Halte | $7.594 | Kota terdekat: kereta berhenti 0,3 detik lebih singkat (0,5 → 0,2) |
+  | 7 | 🚨 Kantor Polisi | $11.391 | Kota terdekat jadi **titik mati** (lingkaran abu-abu kecil): antreannya bubar, tidak memunculkan penumpang, tidak dituju, tidak menurunkan kepuasan. Populasi & kunjungannya tetap |
+  | 8 | 🕌 Masjid | $17.086 | Kota terdekat: tidak menurunkan kepuasan sama sekali |
+  | 9 | 🏥 Rumah Sakit | $25.629 | Se-negara: kepuasan 0% tidak membuat kalah |
+  | 10 | 🏛️ Istana Negara | $38.443 | Kota terdekat menjadi Kapital, sebagai tambahan di luar kuota (Kapital lain tidak bergeser) |
+  | 11 | 🚉 Stasiun | $57.665 | Jalur yang melewati kota terdekat: gerbong maks +1 → **level 7 = 27 penumpang** (harga naik ×1,5 seperti biasa). Kalau Stasiun dihapus, muatannya kembali 24; level yang sudah dibeli aktif lagi kalau Stasiun dipasang kembali |
+  | 12 | 🏭 Perindustrian | $86.498 | Kota terdekat: laju penumpang +25%, dan setiap hari kas + jumlah penumpang yang menunggu di sana |
+  | 13 | 🏟️ Stadion | $129.746 | Kota terdekat: **hari pertandingan** setiap hari kelipatan 7: dituju ×3 dan tarif ×2 selama hari itu |
+  | 14 | 🎓 Universitas | $194.620 | Se-negara: semua jalur otomatis **kereta & gerbong maksimal**, gratis, termasuk jalur baru dan batas yang naik karena Stasiun/Menara. Kalau dihapus, kereta gratis hilang dan gerbong kembali ke yang dibeli |
+  | 15 | ⚓ Pelabuhan | $291.929 | Kota terdekat: penumpang yang transit di sini langsung terantar ke tujuannya (tarif penuh sesuai rute, menambah populasi kota tujuan) |
+  | 16 | 🏯 Kastil | $437.894 | Kota terdekat: setiap kali festival rutin selesai, kota ini festival 2 hari (bergantian, tidak bersamaan) |
+  | 17 | 🏢 Perkantoran | $656.841 | Kota terdekat: setiap hari kas + populasinya |
+  | 18 | 🗼 Menara | $985.261 | Jalur yang melewati kota terdekat: kereta maks ×2. Kalau dihapus, kereta yang melebihi batas dibongkar (uang kembali 50%) |
+  | 19 | 🏕️ Perkemahan | $1.477.892 | Se-negara: efek Taman & Air Mancur aktif di semua kota yang punya landmark, termasuk yang dipasang kemudian |
+  | 20 | ✈️ Bandara | $2.216.838 | Kota terdekat: setiap hari 20% penumpang yang menunggu langsung terantar (bayar tarif, menambah populasi) |
+
+  - **Hapus**: klik dua kali (atau ketuk dua kali) landmark di peta. Uang tidak kembali dan efeknya langsung hilang. Landmark itu masuk **antrean chip paling belakang**, supaya bisa bergantian dengan landmark lain. Setelah semua 20 terpasang, chip menjadi ✓.
+  - Pendapatan landmark harian muncul di notifikasi hari, misalnya "Hari 12 · perawatan -$80 (…) · landmark +$530".
+  - Arahkan kursor ke landmark untuk melihat efek dan kotanya. Tooltip kota juga mencantumkan semua efek landmark yang berlaku di kota itu.
   - Landmark tidak dibawa ke peta berikutnya: setiap peta mulai lagi dari 🏠 Rumah.
 
 ## Kontrol
